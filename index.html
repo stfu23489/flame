@@ -29,7 +29,7 @@
     <div class="p-8" id="tabContents">
       <section id="keys" class="tab-content">
         <button id="genKeysBtn" class="mb-6 w-full btn-indigo rounded-xl font-semibold py-4 transition">
-          Generate Your Keypairs (Kyber + Falcon)
+          Generate Your Keypairs (MLKem + Falcon)
         </button>
 
         <label class="block text-sm font-semibold text-text-secondary mb-2">Your Combined Public Key (base64)</label>
@@ -37,7 +37,7 @@
           id="yourPublicKey"
           rows="4"
           readonly
-          placeholder="KyberPubBase64 || FalconPubBase64"
+          placeholder="MLKemPubBase64 || FalconPubBase64"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -46,7 +46,7 @@
           id="yourPrivateKey"
           rows="4"
           readonly
-          placeholder="KyberPrivBase64 || FalconPrivBase64"
+          placeholder="MLKemPrivBase64 || FalconPrivBase64"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -54,7 +54,7 @@
         <textarea
           id="importExportKeys"
           rows="4"
-          placeholder="Paste KyberPub||FalconPub||KyberPriv||FalconPriv to import, or click Export"
+          placeholder="Paste MLKemPub||FalconPub||MLKemPriv||FalconPriv to import, or click Export"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -73,7 +73,7 @@
         <textarea
           id="recipientPublicKey"
           rows="4"
-          placeholder="KyberPubBase64 || FalconPubBase64"
+          placeholder="MLKemPubBase64 || FalconPubBase64"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -83,7 +83,7 @@
         <textarea
           id="inputText"
           rows="6"
-          placeholder="plaintext or ctKEM|iv|ciphertext|signature"
+          placeholder="plaintext or ctMLKem|iv|ciphertext|signature"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -101,7 +101,7 @@
           id="outputText"
           rows="6"
           readonly
-          placeholder="ctKEM|iv|ciphertext|signature"
+          placeholder="ctMLKem|iv|ciphertext|signature"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
