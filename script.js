@@ -245,86 +245,117 @@ importBtn.addEventListener('click', async () => {
   }
 });
 
-// Encrypt & Sign Logic
+// Encrypt & Sign Logic (Modified to sign+compress before encryption)
 encBtn.addEventListener('click', async () => {
-  clearOutput();
-  const msg = inp.value.trim();
-  const rec = recPub.value.trim();
-  if (!msg) return showAlert("Enter a message to encrypt.", true);
-  if (!rec) return showAlert("Recipient public key needed.", true);
-  
-  const pr = rec.split("||");
-  if (pr.length !== 2) return showAlert("Recipient key format: MLKemPub||FalconPub", true);
-  
-  const rkp = fromBase64(pr[0]), rfp = fromBase64(pr[1]);
-  if (!rkp || !rfp) return showAlert("Invalid base64 in recipient pub keys.", true);
-  
-  try {
-    if (!kem) kem = new MlKem768();
-    const [ctMLKem, shared] = await kem.encap(rkp);
-    const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["encrypt"]);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const enc = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, new TextEncoder().encode(msg));
-    const ct = new Uint8Array(enc);
-    if (!falcon) falcon = await pqcSignFalcon512();
-    const { signature } = await falcon.sign(new TextEncoder().encode(msg), faPriv);
+  clearOutput();
+  const msg = inp.value.trim();
+  const rec = recPub.value.trim();
+  if (!msg) return showAlert("Enter a message to encrypt.", true);
+  if (!rec) return showAlert("Recipient public key needed.", true);
 
-    const encodedParts = [
-      encodeBase64ToCustom(toBase64(ctMLKem), encoderAlphabet),
-      encodeBase64ToCustom(toBase64(iv), encoderAlphabet),
-      encodeBase64ToCustom(toBase64(ct), encoderAlphabet),
-      encodeBase64ToCustom(toBase64(signature), encoderAlphabet)
-    ];
-    out.value = encodedParts.join("|");
-    showAlert("Encryption & signing complete!");
-  } catch (e) {
-    showAlert("Encryption failed. Make sure your private keys are loaded.", true);
-    console.error(e);
-  }
+  const pr = rec.split("||");
+  if (pr.length !== 2) return showAlert("Recipient key format: MLKemPub||FalconPub", true);
+
+  const rkp = fromBase64(pr[0]), rfp = fromBase64(pr[1]);
+  if (!rkp || !rfp) return showAlert("Invalid base64 in recipient pub keys.", true);
+
+  try {
+    if (!kem) kem = new MlKem768();
+    const [ctMLKem, shared] = await kem.encap(rkp);
+
+    if (!falcon) falcon = await pqcSignFalcon512();
+    const encodedMsg = new TextEncoder().encode(msg);
+    const { signature } = await falcon.sign(encodedMsg, faPriv);
+
+    // Combine message and signature
+    const combined = JSON.stringify({
+      m: msg,
+      s: toBase64(signature),
+    });
+
+    // Compress combined data
+    const compressed = await compressString(combined);
+    const compressedBytes = fromBase64(compressed);
+
+    // Encrypt compressed data
+    const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["encrypt"]);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, compressedBytes);
+    const ct = new Uint8Array(enc);
+
+    // Encode all components to custom alphabet
+    const encodedParts = [
+      encodeBase64ToCustom(toBase64(ctMLKem), encoderAlphabet),
+      encodeBase64ToCustom(toBase64(iv), encoderAlphabet),
+      encodeBase64ToCustom(toBase64(ct), encoderAlphabet),
+      "", // Signature is now embedded, this remains empty
+    ];
+    out.value = encodedParts.join("|");
+    showAlert("Encryption & signing complete!");
+  } catch (e) {
+    showAlert("Encryption failed. Make sure your private keys are loaded.", true);
+    console.error(e);
+  }
 });
 
-// Decrypt & Verify Logic
+// Decrypt & Verify Logic (Modified to decompress and verify after decrypt)
 decBtn.addEventListener('click', async () => {
-  clearOutput();
-  const val = inp.value.trim();
-  if (!val) return showAlert("Enter encrypted input.", true);
-  
-  const priv = yourPriv.value.trim(), pub = yourPub.value.trim();
-  if (!priv || !pub) return showAlert("Your keys needed.", true);
-  
-  const pp = priv.split("||"), pu = pub.split("||");
-  if (pp.length !==2 || pu.length!==2) return showAlert("Your keys must be MLKem||Falcon", true);
-  
-  const sK = fromBase64(pp[0]), sF = fromBase64(pp[1]), pK = fromBase64(pu[0]), pF = fromBase64(pu[1]);
-  if (!sK||!sF||!pK||!pF) return showAlert("Invalid base64 in your keys.", true);
-  
-  const parts = val.split("|");
-  if (parts.length !== 4) return showAlert("Encrypted format: custom_encoded_ctMLKem|custom_encoded_iv|custom_encoded_ciphertext|custom_encoded_signature", true);
-  
-  // Decode custom characters back to standard base64 before converting to Uint8Array
-  const [ctK, iv, ct, sig] = parts.map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
-  if (!ctK||!iv||!ct||!sig) return showAlert("Invalid custom-encoded data.", true);
-  
-  try {
-    if (!kem) kem = new MlKem768();
-    const shared = await kem.decap(ctK, sK);
-    const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["decrypt"]);
-    
-    let plainBytes;
-    try { plainBytes = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ct); }
-    catch { return res.textContent = "❌ Decryption failed."; }
-    
-    if (!falcon) falcon = await pqcSignFalcon512();
-    const valid = await falcon.verify(sig, new Uint8Array(plainBytes), pF);
-    
-    out.value = new TextDecoder().decode(plainBytes);
-    res.textContent = valid ? "✅ Signature is valid." : "❌ Signature is invalid.";
-    
-    showAlert("Decryption & verification complete!");
-  } catch (e) {
-    showAlert("Decryption failed. Check your input and keys.", true);
-    console.error(e);
-  }
+  clearOutput();
+  const val = inp.value.trim();
+  if (!val) return showAlert("Enter encrypted input.", true);
+
+  const priv = yourPriv.value.trim(), pub = yourPub.value.trim();
+  if (!priv || !pub) return showAlert("Your keys needed.", true);
+
+  const pp = priv.split("||"), pu = pub.split("||");
+  if (pp.length !== 2 || pu.length !== 2) return showAlert("Your keys must be MLKem||Falcon", true);
+
+  const sK = fromBase64(pp[0]), sF = fromBase64(pp[1]), pK = fromBase64(pu[0]), pF = fromBase64(pu[1]);
+  if (!sK || !sF || !pK || !pF) return showAlert("Invalid base64 in your keys.", true);
+
+  const parts = val.split("|");
+  if (parts.length !== 4) return showAlert("Encrypted format: custom_encoded_ctMLKem|custom_encoded_iv|custom_encoded_ciphertext|", true);
+
+  const [ctK, iv, ct] = parts.slice(0, 3).map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
+  if (!ctK || !iv || !ct) return showAlert("Invalid custom-encoded data.", true);
+
+  try {
+    if (!kem) kem = new MlKem768();
+    const shared = await kem.decap(ctK, sK);
+    const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["decrypt"]);
+
+    let decrypted;
+    try {
+      decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ct);
+    } catch {
+      return res.textContent = "❌ Decryption failed.";
+    }
+
+    // Decompress and parse JSON
+    const decompressed = await decompressString(toBase64(new Uint8Array(decrypted)));
+    if (!decompressed) return res.textContent = "❌ Decompression failed.";
+
+    let parsed;
+    try {
+      parsed = JSON.parse(decompressed);
+    } catch {
+      return res.textContent = "❌ Failed to parse decrypted JSON.";
+    }
+
+    const { m, s } = parsed;
+    if (!m || !s) return res.textContent = "❌ Missing message or signature.";
+
+    if (!falcon) falcon = await pqcSignFalcon512();
+    const valid = await falcon.verify(fromBase64(s), new TextEncoder().encode(m), pF);
+
+    out.value = m;
+    res.textContent = valid ? "✅ Signature is valid." : "❌ Signature is invalid.";
+
+    showAlert("Decryption & verification complete!");
+  } catch (e) {
+    showAlert("Decryption failed. Check your input and keys.", true);
+    console.error(e);
+  }
 });
 
 // Clear output helper
