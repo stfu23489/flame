@@ -5,92 +5,67 @@ import { MlKem768 } from "https://esm.sh/mlkem";
 import pqcSignFalcon512 from "https://cdn.jsdelivr.net/npm/@dashlane/pqc-sign-falcon-512-browser@1.0.0/dist/pqc-sign-falcon-512.min.js";
 
 const _standardBase64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 const _standardCharToInt = (() => {
-    const map = {};
-    for (let i = 0; i < _standardBase64Chars.length; i++) {
-        map[_standardBase64Chars[i]] = i;
-    }
-    return map;
+  const map = {};
+  for (let i = 0; i < _standardBase64Chars.length; i++) {
+    map[_standardBase64Chars[i]] = i;
+  }
+  return map;
 })();
 
-function encodeBase64ToCustom(base64String) {
-    if (encoderAlphabet.length !== 4096) {
-        console.warn(`Warning: Custom alphabet length is ${encoderAlphabet.length}, expected 4096.`);
-    }
+function encodeBase64ToCustom(base64String, customAlphabet) {
+  if (customAlphabet.length !== 4096) {
+    console.warn(`Warning: Custom alphabet length is ${customAlphabet.length}, expected 4096.`);
+  }
 
-    const cleanBase64String = base64String.replace(/=+$/, '');
+  const cleanBase64String = base64String.replace(/=+$/, '');
+  const mappedResult = [];
 
-    const mappedResult = [];
-    for (let i = 0; i < cleanBase64String.length; i += 2) {
-        if (i + 1 < cleanBase64String.length) {
-            const char1 = cleanBase64String[i];
-            const char2 = cleanBase64String[i + 1];
+  for (let i = 0; i < cleanBase64String.length; i += 2) {
+    if (i + 1 < cleanBase64String.length) {
+      const value1 = _standardCharToInt[cleanBase64String[i]];
+      const value2 = _standardCharToInt[cleanBase64String[i + 1]];
+      if (value1 === undefined || value2 === undefined) continue;
+      const combined12BitValue = (value1 << 6) | value2;
+      mappedResult.push(customAlphabet[combined12BitValue]);
+    } else {
+      mappedResult.push(cleanBase64String[i]);
+    }
+  }
 
-            const value1 = _standardCharToInt[char1];
-            const value2 = _standardCharToInt[char2];
-
-            if (value1 === undefined || value2 === undefined) {
-                console.error(`Error: Invalid base64 character in pair '${char1}${char2}'. Skipping.`);
-                continue;
-            }
-
-            const combined12BitValue = (value1 << 6) | value2;
-
-            if (combined12BitValue >= 0 && combined12BitValue < encoderAlphabet.length) {
-                mappedResult.push(encoderAlphabet[combined12BitValue]);
-            } else {
-                console.warn(`Warning: Combined value ${combined12BitValue} out of range.`);
-            }
-        } else {
-            mappedResult.push(cleanBase64String[i]); // last unmatched character
-        }
-    }
-
-    return mappedResult.join("");
+  return mappedResult.join("");
 }
 
-function decodeCustomToBase64(mappedString) {
-    if (encoderAlphabet.length !== 4096) {
-        console.warn(`Warning: Custom alphabet length is ${encoderAlphabet.length}, expected 4096.`);
-    }
+function decodeCustomToBase64(mappedString, customAlphabet) {
+  if (customAlphabet.length !== 4096) {
+    console.warn(`Warning: Custom alphabet length is ${customAlphabet.length}, expected 4096.`);
+  }
 
-    const customCharToInt = {};
-    for (let i = 0; i < encoderAlphabet.length; i++) {
-        customCharToInt[encoderAlphabet[i]] = i;
-    }
+  const customCharToInt = {};
+  for (let i = 0; i < customAlphabet.length; i++) {
+    customCharToInt[customAlphabet[i]] = i;
+  }
 
-    const decodedStandardChars = [];
-    for (const char of mappedString) {
-        const combined12BitValue = customCharToInt[char];
+  const decoded = [];
 
-        if (combined12BitValue === undefined) {
-            if (_standardCharToInt[char] !== undefined) {
-                decodedStandardChars.push(char); // likely unmatched tail character
-            } else {
-                console.error(`Unknown character '${char}' – skipping.`);
-            }
-        } else {
-            const value1 = (combined12BitValue >> 6) & 0x3F;
-            const value2 = combined12BitValue & 0x3F;
+  for (const char of mappedString) {
+    const val = customCharToInt[char];
+    if (val === undefined) {
+      if (_standardCharToInt[char] !== undefined) decoded.push(char);
+      continue;
+    }
+    const v1 = (val >> 6) & 0x3F;
+    const v2 = val & 0x3F;
+    decoded.push(_standardBase64Chars[v1], _standardBase64Chars[v2]);
+  }
 
-            decodedStandardChars.push(_standardBase64Chars[value1]);
-            decodedStandardChars.push(_standardBase64Chars[value2]);
-        }
-    }
-
-    while (decodedStandardChars.length % 4 !== 0) {
-        decodedStandardChars.push('=');
-    }
-
-    return decodedStandardChars.join("");
+  while (decoded.length % 4 !== 0) decoded.push('=');
+  return decoded.join('');
 }
 
-// Helpers
 const toBase64 = u8 => btoa(String.fromCharCode(...u8));
-const fromBase64 = s => { try { return new Uint8Array(atob(s).split('').map(c=>c.charCodeAt(0))); } catch { return null; } };
+const fromBase64 = s => { try { return new Uint8Array(atob(s).split('').map(c => c.charCodeAt(0))); } catch { return null; } };
 
-// New Compression/Decompression helpers
 async function compressString(str) {
   const stream = new CompressionStream('gzip');
   const writer = stream.writable.getWriter();
@@ -103,8 +78,7 @@ async function compressString(str) {
     if (done) break;
     chunks.push(value);
   }
-  const compressed = new Uint8Array(await new Blob(chunks).arrayBuffer());
-  return toBase64(compressed);
+  return toBase64(new Uint8Array(await new Blob(chunks).arrayBuffer()));
 }
 
 async function decompressString(base64Str) {
@@ -121,11 +95,10 @@ async function decompressString(base64Str) {
     if (done) break;
     chunks.push(value);
   }
-  const decompressed = new Uint8Array(await new Blob(chunks).arrayBuffer());
-  return new TextDecoder().decode(decompressed);
+  return new TextDecoder().decode(await new Blob(chunks).arrayBuffer());
 }
 
-// Elements
+// DOM Elements
 const genKeysBtn = document.getElementById('genKeysBtn');
 const yourPub = document.getElementById('yourPublicKey');
 const yourPriv = document.getElementById('yourPrivateKey');
@@ -145,51 +118,51 @@ const alertProgressBar = document.getElementById('alertProgressBar');
 // State
 let kem, falcon, mlkemPub, mlkemPriv, faPub, faPriv;
 
-// Show custom alert
 function showAlert(message, isError = false) {
-  alertMessage.textContent = message;
-  alertPopup.classList.remove('alert-success', 'alert-error');
-  alertPopup.classList.add(isError ? 'alert-error' : 'alert-success');
-  alertPopup.classList.add('show');
+  alertMessage.textContent = message;
+  alertPopup.classList.remove('alert-success', 'alert-error');
+  alertPopup.classList.add(isError ? 'alert-error' : 'alert-success');
+  alertPopup.classList.add('show');
 
-  // Reset and restart the animation
-  alertProgressBar.style.animation = 'none';
-  void alertProgressBar.offsetWidth; // Trigger reflow
-  alertProgressBar.style.animation = null;
+  alertProgressBar.style.animation = 'none';
+  void alertProgressBar.offsetWidth;
+  alertProgressBar.style.animation = null;
 
-  setTimeout(() => {
-    alertPopup.classList.remove('show');
-  }, 3000);
+  setTimeout(() => alertPopup.classList.remove('show'), 3000);
 }
 
-// Generate Keys
+function clearOutput() {
+  out.value = "";
+  res.textContent = "";
+}
+
+// Generate Keypairs
 genKeysBtn.addEventListener('click', async () => {
-  genKeysBtn.disabled = true;
-  genKeysBtn.textContent = "Generating...";
-  try {
-    kem = new MlKem768();
-    [mlkemPub, mlkemPriv] = await kem.generateKeyPair();
-    falcon = await pqcSignFalcon512();
-    const fk = await falcon.keypair();
-    faPub = fk.publicKey; faPriv = fk.privateKey;
-    yourPub.value = toBase64(mlkemPub) + "|" + toBase64(faPub);
-    yourPriv.value = toBase64(mlkemPriv) + "|" + toBase64(faPriv);
-    showAlert("Keypairs generated successfully!");
-  } catch (e) {
-    showAlert("Failed to generate keys.", true);
-    console.error(e);
-  } finally {
-    genKeysBtn.disabled = false;
-    genKeysBtn.textContent = "Generate Your Keypairs (MLKem + Falcon)";
-    clearOutput();
-  }
+  genKeysBtn.disabled = true;
+  genKeysBtn.textContent = "Generating...";
+  try {
+    kem = new MlKem768();
+    [mlkemPub, mlkemPriv] = await kem.generateKeyPair();
+    falcon = await pqcSignFalcon512();
+    const fk = await falcon.keypair();
+    faPub = fk.publicKey;
+    faPriv = fk.privateKey;
+    yourPub.value = `${toBase64(mlkemPub)}|${toBase64(faPub)}`;
+    yourPriv.value = `${toBase64(mlkemPriv)}|${toBase64(faPriv)}`;
+    showAlert("Keypairs generated successfully!");
+  } catch (e) {
+    showAlert("Key generation failed.", true);
+    console.error(e);
+  } finally {
+    genKeysBtn.disabled = false;
+    genKeysBtn.textContent = "Generate Your Keypairs (MLKem + Falcon)";
+    clearOutput();
+  }
 });
 
-// Export Raw Keys
+// Export Keys
 exportBtn.addEventListener('click', async () => {
-  if (!mlkemPub || !faPub || !mlkemPriv || !faPriv) {
-    return showAlert("Generate or import keys first.", true);
-  }
+  if (!mlkemPub || !faPub || !mlkemPriv || !faPriv) return showAlert("Generate or import keys first.", true);
   try {
     const rawKeys = JSON.stringify({
       mlkemPub: toBase64(mlkemPub),
@@ -198,147 +171,104 @@ exportBtn.addEventListener('click', async () => {
       faPriv: toBase64(faPriv),
     });
     impExp.value = await compressString(rawKeys);
-    showAlert("Keys exported and compressed to the text box.");
+    showAlert("Keys exported and compressed.");
   } catch (e) {
-    showAlert("Failed to compress and export keys.", true);
+    showAlert("Export failed.", true);
     console.error(e);
   }
 });
 
-// Import Raw Keys
+// Import Keys
 importBtn.addEventListener('click', async () => {
   const compressedData = impExp.value.trim();
-  if (!compressedData) {
-    return showAlert("Paste compressed key data to import.", true);
-  }
+  if (!compressedData) return showAlert("Paste key data first.", true);
   try {
-    const decompressedJson = await decompressString(compressedData);
-    if (!decompressedJson) {
-      return showAlert("Invalid compressed data.", true);
-    }
-    const keys = JSON.parse(decompressedJson);
-    const kp = fromBase64(keys.mlkemPub);
-    const fp = fromBase64(keys.faPub);
-    const ks = fromBase64(keys.mlkemPriv);
-    const fs = fromBase64(keys.faPriv);
+    const decompressed = await decompressString(compressedData);
+    if (!decompressed) return showAlert("Decompression failed.", true);
 
-    if (!kp || !fp || !ks || !fs) {
-      return showAlert("Invalid base64 in keys after decompression.", true);
-    }
+    const keys = JSON.parse(decompressed);
+    mlkemPub = fromBase64(keys.mlkemPub);
+    faPub = fromBase64(keys.faPub);
+    mlkemPriv = fromBase64(keys.mlkemPriv);
+    faPriv = fromBase64(keys.faPriv);
 
-    mlkemPub = kp;
-    faPub = fp;
-    mlkemPriv = ks;
-    faPriv = fs;
-
-    yourPub.value = keys.mlkemPub + "|" + keys.faPub;
-    yourPriv.value = keys.mlkemPriv + "|" + keys.faPriv;
-
+    yourPub.value = `${keys.mlkemPub}|${keys.faPub}`;
+    yourPriv.value = `${keys.mlkemPriv}|${keys.faPriv}`;
     showAlert("Keys imported successfully.");
     clearOutput();
   } catch (e) {
-    showAlert("Failed to decompress and import keys. Ensure the data is correct.", true);
+    showAlert("Import failed.", true);
     console.error(e);
   }
 });
 
-// Encrypt & Sign Logic (Modified to sign+compress before encryption)
+// Encrypt & Sign
 encBtn.addEventListener('click', async () => {
   clearOutput();
   const msg = inp.value.trim();
   const rec = recPub.value.trim();
-  if (!msg) return showAlert("Enter a message to encrypt.", true);
-  if (!rec) return showAlert("Recipient public key needed.", true);
+  if (!msg || !rec) return showAlert("Message and recipient key required.", true);
 
-  const pr = rec.split("|");
-  if (pr.length !== 2) return showAlert("Recipient key format: MLKemPub|FalconPub", true);
-
-  const rkp = fromBase64(pr[0]), rfp = fromBase64(pr[1]);
-  if (!rkp || !rfp) return showAlert("Invalid base64 in recipient pub keys.", true);
+  const [rkpStr, rfpStr] = rec.split("|");
+  const rkp = fromBase64(rkpStr);
+  const rfp = fromBase64(rfpStr);
+  if (!rkp || !rfp) return showAlert("Invalid recipient keys.", true);
 
   try {
     if (!kem) kem = new MlKem768();
     const [ctMLKem, shared] = await kem.encap(rkp);
 
     if (!falcon) falcon = await pqcSignFalcon512();
-    const encodedMsg = new TextEncoder().encode(msg);
-    const { signature } = await falcon.sign(encodedMsg, faPriv);
+    const signature = (await falcon.sign(new TextEncoder().encode(msg), faPriv)).signature;
 
-    // Combine message and signature
-    const combined = JSON.stringify({
-      m: msg,
-      s: toBase64(signature),
-    });
-
-    // Compress combined data
-    const compressed = await compressString(combined);
+    const payload = JSON.stringify({ m: msg, s: toBase64(signature) });
+    const compressed = await compressString(payload);
     const compressedBytes = fromBase64(compressed);
 
-    // Encrypt compressed data
     const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["encrypt"]);
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const enc = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, compressedBytes);
-    const ct = new Uint8Array(enc);
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, compressedBytes));
 
-    // Encode all components to custom alphabet
-    const encodedParts = [
-      encodeBase64ToCustom(toBase64(ctMLKem))
-      encodeBase64ToCustom(toBase64(iv))
-      encodeBase64ToCustom(toBase64(ct))
-    ];
-    out.value = encodedParts.join("|");
+    const encoded = [
+      encodeBase64ToCustom(toBase64(ctMLKem), encoderAlphabet),
+      encodeBase64ToCustom(toBase64(iv), encoderAlphabet),
+      encodeBase64ToCustom(toBase64(ciphertext), encoderAlphabet)
+    ].join("|");
+
+    out.value = encoded;
     showAlert("Encryption & signing complete!");
   } catch (e) {
-    showAlert("Encryption failed. Make sure your private keys are loaded.", true);
+    showAlert("Encryption failed.", true);
     console.error(e);
   }
 });
 
-// Decrypt & Verify Logic (Modified to decompress and verify after decrypt)
+// Decrypt & Verify
 decBtn.addEventListener('click', async () => {
   clearOutput();
   const val = inp.value.trim();
   if (!val) return showAlert("Enter encrypted input.", true);
 
-  const priv = yourPriv.value.trim(), pub = yourPub.value.trim();
-  if (!priv || !pub) return showAlert("Your keys needed.", true);
-
-  const pp = priv.split("|"), pu = pub.split("|");
-  if (pp.length !== 2 || pu.length !== 2) return showAlert("Your keys must be MLKem|Falcon", true);
-
-  const sK = fromBase64(pp[0]), sF = fromBase64(pp[1]), pK = fromBase64(pu[0]), pF = fromBase64(pu[1]);
-  if (!sK || !sF || !pK || !pF) return showAlert("Invalid base64 in your keys.", true);
+  const [privML, privFA] = yourPriv.value.trim().split("|");
+  const [pubML, pubFA] = yourPub.value.trim().split("|");
+  const sK = fromBase64(privML), sF = fromBase64(privFA), pF = fromBase64(pubFA);
+  if (!sK || !sF || !pF) return showAlert("Invalid or missing keys.", true);
 
   const parts = val.split("|");
-  if (parts.length !== 3) return showAlert("Encrypted format: custom_encoded_ctMLKem|custom_encoded_iv|custom_encoded_ciphertext", true);
+  if (parts.length !== 3) return showAlert("Incorrect input format.", true);
 
-  const [ctK, iv, ct] = parts.slice(0, 2).map(p => fromBase64(decodeCustomToBase64(p)));
-  if (!ctK || !iv || !ct) return showAlert("Invalid custom-encoded data.", true);
+  const [ctK, ivStr, ctStr] = parts.map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
+  if (!ctK || !ivStr || !ctStr) return showAlert("Invalid encoded data.", true);
 
   try {
     if (!kem) kem = new MlKem768();
     const shared = await kem.decap(ctK, sK);
     const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["decrypt"]);
 
-    let decrypted;
-    try {
-      decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ct);
-    } catch {
-      return res.textContent = "❌ Decryption failed.";
-    }
+    const decrypted = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: ivStr }, aesKey, ctStr));
+    const decompressed = await decompressString(toBase64(decrypted));
+    const { m, s } = JSON.parse(decompressed);
 
-    // Decompress and parse JSON
-    const decompressed = await decompressString(toBase64(new Uint8Array(decrypted)));
-    if (!decompressed) return res.textContent = "❌ Decompression failed.";
-
-    let parsed;
-    try {
-      parsed = JSON.parse(decompressed);
-    } catch {
-      return res.textContent = "❌ Failed to parse decrypted JSON.";
-    }
-
-    const { m, s } = parsed;
     if (!m || !s) return res.textContent = "❌ Missing message or signature.";
 
     if (!falcon) falcon = await pqcSignFalcon512();
@@ -346,25 +276,21 @@ decBtn.addEventListener('click', async () => {
 
     out.value = m;
     res.textContent = valid ? "✅ Signature is valid." : "❌ Signature is invalid.";
-
     showAlert("Decryption & verification complete!");
   } catch (e) {
-    showAlert("Decryption failed. Check your input and keys.", true);
+    showAlert("Decryption or verification failed.", true);
     console.error(e);
   }
 });
 
-// Clear output helper
-function clearOutput() { out.value = ""; res.textContent = ""; }
-
-// Tab switching
+// Tabs
 document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const tgt = btn.getAttribute('data-tab');
-    document.querySelectorAll('.tab-content').forEach(sec => {
-      sec.id === tgt ? sec.classList.remove('hidden') : sec.classList.add('hidden');
-    });
-  });
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tgt = btn.getAttribute('data-tab');
+    document.querySelectorAll('.tab-content').forEach(sec => {
+      sec.classList.toggle('hidden', sec.id !== tgt);
+    });
+  });
 });
