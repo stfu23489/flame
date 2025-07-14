@@ -23,7 +23,7 @@ const alertMessage = document.getElementById('alertMessage');
 const alertProgressBar = document.getElementById('alertProgressBar');
 
 // State
-let kem, falcon, kyPub, kyPriv, faPub, faPriv;
+let kem, falcon, mlkemPub, mlkemPriv, faPub, faPriv;
 
 // Show custom alert
 function showAlert(message, isError = false) {
@@ -48,37 +48,37 @@ genKeysBtn.addEventListener('click', async () => {
   genKeysBtn.textContent = "Generating...";
   try {
     kem = new MlKem768();
-    [kyPub, kyPriv] = await kem.generateKeyPair();
+    [mlkemPub, mlkemPriv] = await kem.generateKeyPair();
     falcon = await pqcSignFalcon512();
     const fk = await falcon.keypair();
     faPub = fk.publicKey; faPriv = fk.privateKey;
-    yourPub.value = toBase64(kyPub) + "||" + toBase64(faPub);
-    yourPriv.value = toBase64(kyPriv) + "||" + toBase64(faPriv);
+    yourPub.value = toBase64(mlkemPub) + "||" + toBase64(faPub);
+    yourPriv.value = toBase64(mlkemPriv) + "||" + toBase64(faPriv);
     showAlert("Keypairs generated successfully!");
   } catch (e) {
     showAlert("Failed to generate keys.", true);
     console.error(e);
   } finally {
     genKeysBtn.disabled = false;
-    genKeysBtn.textContent = "Generate Your Keypairs (Kyber + Falcon)";
+    genKeysBtn.textContent = "Generate Your Keypairs (MLKem + Falcon)";
     clearOutput();
   }
 });
 
 // Export Raw Keys
 exportBtn.addEventListener('click', () => {
-  if (!kyPub || !faPub || !kyPriv || !faPriv) return showAlert("Generate or import keys first.", true);
-  impExp.value = [toBase64(kyPub), toBase64(faPub), toBase64(kyPriv), toBase64(faPriv)].join("||");
+  if (!mlkemPub || !faPub || !mlkemPriv || !faPriv) return showAlert("Generate or import keys first.", true);
+  impExp.value = [toBase64(mlkemPub), toBase64(faPub), toBase64(mlkemPriv), toBase64(faPriv)].join("||");
   showAlert("Keys exported to the text box.");
 });
 
 // Import Raw Keys
 importBtn.addEventListener('click', () => {
   const parts = impExp.value.trim().split("||");
-  if (parts.length !== 4) return showAlert("Import format: KyberPub||FalconPub||KyberPriv||FalconPriv", true);
+  if (parts.length !== 4) return showAlert("Import format: MLKemPub||FalconPub||MLKemPriv||FalconPriv", true);
   const [kp, fp, ks, fs] = parts.map(fromBase64);
   if (!kp || !fp || !ks || !fs) return showAlert("Invalid base64 in keys.", true);
-  kyPub = kp; faPub = fp; kyPriv = ks; faPriv = fs;
+  mlkemPub = kp; faPub = fp; mlkemPriv = ks; faPriv = fs;
   yourPub.value = parts[0] + "||" + parts[1];
   yourPriv.value = parts[2] + "||" + parts[3];
   showAlert("Keys imported successfully.");
@@ -94,21 +94,21 @@ encBtn.addEventListener('click', async () => {
   if (!rec) return showAlert("Recipient public key needed.", true);
   
   const pr = rec.split("||");
-  if (pr.length !== 2) return showAlert("Recipient key format: KyberPub||FalconPub", true);
+  if (pr.length !== 2) return showAlert("Recipient key format: MLKemPub||FalconPub", true);
   
   const rkp = fromBase64(pr[0]), rfp = fromBase64(pr[1]);
   if (!rkp || !rfp) return showAlert("Invalid base64 in recipient pub keys.", true);
   
   try {
     if (!kem) kem = new MlKem768();
-    const [ctKEM, shared] = await kem.encap(rkp);
+    const [ctMLKem, shared] = await kem.encap(rkp);
     const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["encrypt"]);
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const enc = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, new TextEncoder().encode(msg));
     const ct = new Uint8Array(enc);
     if (!falcon) falcon = await pqcSignFalcon512();
     const { signature } = await falcon.sign(new TextEncoder().encode(msg), faPriv);
-    out.value = [toBase64(ctKEM), toBase64(iv), toBase64(ct), toBase64(signature)].join("|");
+    out.value = [toBase64(ctMLKem), toBase64(iv), toBase64(ct), toBase64(signature)].join("|");
     showAlert("Encryption & signing complete!");
   } catch (e) {
     showAlert("Encryption failed. Make sure your private keys are loaded.", true);
@@ -126,13 +126,13 @@ decBtn.addEventListener('click', async () => {
   if (!priv || !pub) return showAlert("Your keys needed.", true);
   
   const pp = priv.split("||"), pu = pub.split("||");
-  if (pp.length !==2 || pu.length!==2) return showAlert("Your keys must be Kyber||Falcon", true);
+  if (pp.length !==2 || pu.length!==2) return showAlert("Your keys must be MLKem||Falcon", true);
   
   const sK = fromBase64(pp[0]), sF = fromBase64(pp[1]), pK = fromBase64(pu[0]), pF = fromBase64(pu[1]);
   if (!sK||!sF||!pK||!pF) return showAlert("Invalid base64 in your keys.", true);
   
   const parts = val.split("|");
-  if (parts.length !== 4) return showAlert("Encrypted format: ctKEM|iv|ciphertext|signature", true);
+  if (parts.length !== 4) return showAlert("Encrypted format: ctMLKem|iv|ciphertext|signature", true);
   
   const [ctK, iv, ct, sig] = parts.map(fromBase64);
   if (!ctK||!iv||!ct||!sig) return showAlert("Invalid base64 in encrypted data.", true);
