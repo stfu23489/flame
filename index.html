@@ -29,24 +29,24 @@
     <div class="p-8" id="tabContents">
       <section id="keys" class="tab-content">
         <button id="genKeysBtn" class="mb-6 w-full btn-indigo rounded-xl font-semibold py-4 transition">
-          Generate Your Keypairs (MLKem + Falcon)
+          Generate Your Keypairs
         </button>
 
-        <label class="block text-sm font-semibold text-text-secondary mb-2">Your Combined Public Key (base64)</label>
+        <label class="block text-sm font-semibold text-text-secondary mb-2">Your Combined Public Key</label>
         <textarea
           id="yourPublicKey"
           rows="4"
           readonly
-          placeholder="MLKemPubBase64 || FalconPubBase64"
+          placeholder="Public Key"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
-        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Your Combined Private Key (base64)</label>
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Your Combined Private Key</label>
         <textarea
           id="yourPrivateKey"
           rows="4"
           readonly
-          placeholder="MLKemPrivBase64 || FalconPrivBase64"
+          placeholder="Private Key"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -54,7 +54,7 @@
         <textarea
           id="importExportKeys"
           rows="4"
-          placeholder="Paste MLKemPub||FalconPub||MLKemPriv||FalconPriv to import, or click Export"
+          placeholder="Paste keys here to import or click Export"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -69,21 +69,21 @@
       </section>
 
       <section id="crypt" class="tab-content hidden">
-        <label class="block text-sm font-semibold text-text-secondary mb-2">Recipient Combined Public Key (base64)</label>
+        <label class="block text-sm font-semibold text-text-secondary mb-2">Recipient Combined Public Key</label>
         <textarea
           id="recipientPublicKey"
           rows="4"
-          placeholder="MLKemPubBase64 || FalconPubBase64"
+          placeholder="Public Key"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
         <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">
-          Input (plaintext to encrypt/sign OR encrypted+signed output to decrypt/verify)
+          Input
         </label>
         <textarea
           id="inputText"
           rows="6"
-          placeholder="plaintext or ctMLKem|iv|ciphertext|signature"
+          placeholder="text or encrypted text"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -101,7 +101,7 @@
           id="outputText"
           rows="6"
           readonly
-          placeholder="ctMLKem|iv|ciphertext|signature"
+          placeholder="Output text or encrypted text"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
@@ -117,7 +117,7 @@
   <div class="text-sm text-center text-gray-500 mt-4 font-mono">
     version 2.2
   </div>
-  <a href="https://github.com/stfu23489/flame" class="text-sm text-center text-indigo-custom hover:text-indigo-custom-light mt-2 font-mono transition-colors duration-200"><a href="https://exampl" class="text-sm text-center text-indigo-custom hover:text-indigo-custom-light mt-2 font-mono transition-colors duration-200">
+  <a href="https://github.com/stfu23489/flame" class="text-sm text-center text-indigo-custom hover:text-indigo-custom-light mt-2 font-mono transition-colors duration-200">
     View Source Code
   </a>
 
