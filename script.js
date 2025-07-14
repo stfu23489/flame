@@ -15,6 +15,7 @@ const _standardCharToInt = (() => {
 })();
 
 function encodeBase64ToCustom(base64String, customAlphabet) {
+    const customAlphabet = encoderAlphabet
     if (customAlphabet.length !== 4096) {
         console.warn(`Warning: Custom alphabet length is ${customAlphabet.length}, expected 4096.`);
     }
@@ -50,6 +51,7 @@ function encodeBase64ToCustom(base64String, customAlphabet) {
 }
 
 function decodeCustomToBase64(mappedString, customAlphabet) {
+    const customAlphabet = encoderAlphabet
     if (customAlphabet.length !== 4096) {
         console.warn(`Warning: Custom alphabet length is ${customAlphabet.length}, expected 4096 for decoding.`);
     }
@@ -175,8 +177,8 @@ genKeysBtn.addEventListener('click', async () => {
     falcon = await pqcSignFalcon512();
     const fk = await falcon.keypair();
     faPub = fk.publicKey; faPriv = fk.privateKey;
-    yourPub.value = toBase64(mlkemPub) + "||" + toBase64(faPub);
-    yourPriv.value = toBase64(mlkemPriv) + "||" + toBase64(faPriv);
+    yourPub.value = toBase64(mlkemPub) + "|" + toBase64(faPub);
+    yourPriv.value = toBase64(mlkemPriv) + "|" + toBase64(faPriv);
     showAlert("Keypairs generated successfully!");
   } catch (e) {
     showAlert("Failed to generate keys.", true);
@@ -234,8 +236,8 @@ importBtn.addEventListener('click', async () => {
     mlkemPriv = ks;
     faPriv = fs;
 
-    yourPub.value = keys.mlkemPub + "||" + keys.faPub;
-    yourPriv.value = keys.mlkemPriv + "||" + keys.faPriv;
+    yourPub.value = keys.mlkemPub + "|" + keys.faPub;
+    yourPriv.value = keys.mlkemPriv + "|" + keys.faPriv;
 
     showAlert("Keys imported successfully.");
     clearOutput();
@@ -253,8 +255,8 @@ encBtn.addEventListener('click', async () => {
   if (!msg) return showAlert("Enter a message to encrypt.", true);
   if (!rec) return showAlert("Recipient public key needed.", true);
 
-  const pr = rec.split("||");
-  if (pr.length !== 2) return showAlert("Recipient key format: MLKemPub||FalconPub", true);
+  const pr = rec.split("|");
+  if (pr.length !== 2) return showAlert("Recipient key format: MLKemPub|FalconPub", true);
 
   const rkp = fromBase64(pr[0]), rfp = fromBase64(pr[1]);
   if (!rkp || !rfp) return showAlert("Invalid base64 in recipient pub keys.", true);
@@ -285,10 +287,9 @@ encBtn.addEventListener('click', async () => {
 
     // Encode all components to custom alphabet
     const encodedParts = [
-      encodeBase64ToCustom(toBase64(ctMLKem), encoderAlphabet),
-      encodeBase64ToCustom(toBase64(iv), encoderAlphabet),
-      encodeBase64ToCustom(toBase64(ct), encoderAlphabet),
-      "", // Signature is now embedded, this remains empty
+      encodeBase64ToCustom(toBase64(ctMLKem))
+      encodeBase64ToCustom(toBase64(iv))
+      encodeBase64ToCustom(toBase64(ct))
     ];
     out.value = encodedParts.join("|");
     showAlert("Encryption & signing complete!");
@@ -307,16 +308,16 @@ decBtn.addEventListener('click', async () => {
   const priv = yourPriv.value.trim(), pub = yourPub.value.trim();
   if (!priv || !pub) return showAlert("Your keys needed.", true);
 
-  const pp = priv.split("||"), pu = pub.split("||");
-  if (pp.length !== 2 || pu.length !== 2) return showAlert("Your keys must be MLKem||Falcon", true);
+  const pp = priv.split("|"), pu = pub.split("|");
+  if (pp.length !== 2 || pu.length !== 2) return showAlert("Your keys must be MLKem|Falcon", true);
 
   const sK = fromBase64(pp[0]), sF = fromBase64(pp[1]), pK = fromBase64(pu[0]), pF = fromBase64(pu[1]);
   if (!sK || !sF || !pK || !pF) return showAlert("Invalid base64 in your keys.", true);
 
   const parts = val.split("|");
-  if (parts.length !== 4) return showAlert("Encrypted format: custom_encoded_ctMLKem|custom_encoded_iv|custom_encoded_ciphertext|", true);
+  if (parts.length !== 3) return showAlert("Encrypted format: custom_encoded_ctMLKem|custom_encoded_iv|custom_encoded_ciphertext", true);
 
-  const [ctK, iv, ct] = parts.slice(0, 3).map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
+  const [ctK, iv, ct] = parts.slice(0, 2).map(p => fromBase64(decodeCustomToBase64(p)));
   if (!ctK || !iv || !ct) return showAlert("Invalid custom-encoded data.", true);
 
   try {
