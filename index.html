@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FLAME</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="min-h-screen flex flex-col items-center py-12 px-4">
+  <div class="w-full max-w-4xl bg-dark rounded-3xl shadow-2xl border border-dark">
+    <h1 class="text-4xl font-extrabold text-center pt-10 pb-6 text-text-secondary">
+      FLAME
+    </h1>
+    <p class="text-center text-sm font-light text-text-accent mb-8">
+      Falcon-512, AES-256, MlKem-768
+    </p>
+
+    <div class="border-b border-dark">
+      <nav class="flex -mb-0.5" id="tabsNav">
+        <button class="tab-btn active" data-tab="keys">Key Management</button>
+        <button class="tab-btn" data-tab="crypt">Encrypt / Decrypt</button>
+      </nav>
+    </div>
+
+    <div class="p-8" id="tabContents">
+      <section id="keys" class="tab-content">
+        <button id="genKeysBtn" class="mb-6 w-full btn-indigo rounded-xl font-semibold py-4 transition">
+          Generate Your Keypairs (Kyber + Falcon)
+        </button>
+
+        <label class="block text-sm font-semibold text-text-secondary mb-2">Your Combined Public Key (base64)</label>
+        <textarea
+          id="yourPublicKey"
+          rows="4"
+          readonly
+          placeholder="KyberPubBase64 || FalconPubBase64"
+          class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
+        ></textarea>
+
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Your Combined Private Key (base64)</label>
+        <textarea
+          id="yourPrivateKey"
+          rows="4"
+          readonly
+          placeholder="KyberPrivBase64 || FalconPrivBase64"
+          class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
+        ></textarea>
+
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Import / Export Keys</label>
+        <textarea
+          id="importExportKeys"
+          rows="4"
+          placeholder="Paste KyberPub||FalconPub||KyberPriv||FalconPriv to import, or click Export"
+          class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
+        ></textarea>
+
+        <div class="flex space-x-4 mt-4">
+          <button id="importKeysBtn" class="btn-indigo flex-1 rounded-xl font-semibold py-3 transition">
+            Import Keys
+          </button>
+          <button id="exportKeysBtn" class="btn-indigo flex-1 rounded-xl font-semibold py-3 transition">
+            Export Keys
+          </button>
+        </div>
+      </section>
+
+      <section id="crypt" class="tab-content hidden">
+        <label class="block text-sm font-semibold text-text-secondary mb-2">Recipient Combined Public Key (base64)</label>
+        <textarea
+          id="recipientPublicKey"
+          rows="4"
+          placeholder="KyberPubBase64 || FalconPubBase64"
+          class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
+        ></textarea>
+
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">
+          Input (plaintext to encrypt/sign OR encrypted+signed output to decrypt/verify)
+        </label>
+        <textarea
+          id="inputText"
+          rows="6"
+          placeholder="plaintext or ctKEM|iv|ciphertext|signature"
+          class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
+        ></textarea>
+
+        <div class="flex space-x-4 mt-4">
+          <button id="encryptSignBtn" class="btn-green flex-1 rounded-xl font-semibold py-3 transition">
+            Encrypt & Sign
+          </button>
+          <button id="decryptVerifyBtn" class="btn-red flex-1 rounded-xl font-semibold py-3 transition">
+            Decrypt & Verify
+          </button>
+        </div>
+
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Output</label>
+        <textarea
+          id="outputText"
+          rows="6"
+          readonly
+          placeholder="ctKEM|iv|ciphertext|signature"
+          class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
+        ></textarea>
+
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Signature Verification Result</label>
+        <pre
+          id="verifyResult"
+          class="whitespace-pre-wrap rounded-lg p-4 text-sm font-mono min-h-[3rem] border border-dark bg-dark-light text-accent-main"
+        ></pre>
+      </section>
+    </div>
+  </div>
+
+  <div class="text-sm text-center text-gray-500 mt-4 font-mono">
+    version 2.2
+  </div>
+
+  <div id="alertPopup" class="alert-container rounded-lg shadow-xl overflow-hidden p-4">
+    <div class="flex items-center space-x-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 102 0V7a1 1 0 10-2 0v2zm1 4a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+      </svg>
+      <span id="alertMessage" class="text-sm font-semibold"></span>
+    </div>
+    <div class="progress-bar-container mt-3">
+      <div id="alertProgressBar" class="progress-bar"></div>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
