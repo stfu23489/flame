@@ -147,8 +147,15 @@ genKeysBtn.addEventListener('click', async () => {
     const fk = await falcon.keypair();
     faPub = fk.publicKey;
     faPriv = fk.privateKey;
-    yourPub.value = `${toBase64(mlkemPub)}|${toBase64(faPub)}`;
-    yourPriv.value = `${toBase64(mlkemPriv)}|${toBase64(faPriv)}`;
+
+    const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub), encoderAlphabet);
+    const mlkemPrivCustom = encodeBase64ToCustom(toBase64(mlkemPriv), encoderAlphabet);
+    const faPubCustom = encodeBase64ToCustom(toBase64(faPub), encoderAlphabet);
+    const faPrivCustom = encodeBase64ToCustom(toBase64(faPriv), encoderAlphabet);
+
+    yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
+    yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
+    
     showAlert("Keypairs generated successfully!");
   } catch (e) {
     showAlert("Key generation failed.", true);
@@ -164,11 +171,19 @@ genKeysBtn.addEventListener('click', async () => {
 exportBtn.addEventListener('click', async () => {
   if (!mlkemPub || !faPub || !mlkemPriv || !faPriv) return showAlert("Generate or import keys first.", true);
   try {
+    const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
+    const [mlkemPrivCustom, faPrivCustom] = yourPriv.value.split("|");
+
+    const mlkemPubBase64 = decodeCustomToBase64(mlkemPubCustom, encoderAlphabet);
+    const faPubBase64 = decodeCustomToBase64(faPubCustom, encoderAlphabet);
+    const mlkemPrivBase64 = decodeCustomToBase64(mlkemPrivCustom, encoderAlphabet);
+    const faPrivBase64 = decodeCustomToBase64(faPrivCustom, encoderAlphabet);
+    
     const rawKeys = JSON.stringify({
-      mlkemPub: toBase64(mlkemPub),
-      faPub: toBase64(faPub),
-      mlkemPriv: toBase64(mlkemPriv),
-      faPriv: toBase64(faPriv),
+      mlkemPub: mlkemPubBase64,
+      faPub: faPubBase64,
+      mlkemPriv: mlkemPrivBase64,
+      faPriv: faPrivBase64,
     });
     impExp.value = await compressString(rawKeys);
     showAlert("Keys exported and compressed.");
@@ -192,8 +207,14 @@ importBtn.addEventListener('click', async () => {
     mlkemPriv = fromBase64(keys.mlkemPriv);
     faPriv = fromBase64(keys.faPriv);
 
-    yourPub.value = `${keys.mlkemPub}|${keys.faPub}`;
-    yourPriv.value = `${keys.mlkemPriv}|${keys.faPriv}`;
+    const mlkemPubCustom = encodeBase64ToCustom(keys.mlkemPub, encoderAlphabet);
+    const faPubCustom = encodeBase64ToCustom(keys.faPub, encoderAlphabet);
+    const mlkemPrivCustom = encodeBase64ToCustom(keys.mlkemPriv, encoderAlphabet);
+    const faPrivCustom = encodeBase64ToCustom(keys.faPriv, encoderAlphabet);
+
+    yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
+    yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
+    
     showAlert("Keys imported successfully.");
     clearOutput();
   } catch (e) {
@@ -209,7 +230,10 @@ encBtn.addEventListener('click', async () => {
   const rec = recPub.value.trim();
   if (!msg || !rec) return showAlert("Message and recipient key required.", true);
 
-  const [rkpStr, rfpStr] = rec.split("|");
+  const [rkpStrCustom, rfpStrCustom] = rec.split("|");
+  const rkpStr = decodeCustomToBase64(rkpStrCustom, encoderAlphabet);
+  const rfpStr = decodeCustomToBase64(rfpStrCustom, encoderAlphabet);
+
   const rkp = fromBase64(rkpStr);
   const rfp = fromBase64(rfpStr);
   if (!rkp || !rfp) return showAlert("Invalid recipient keys.", true);
@@ -249,9 +273,17 @@ decBtn.addEventListener('click', async () => {
   const val = inp.value.trim();
   if (!val) return showAlert("Enter encrypted input.", true);
 
-  const [privML, privFA] = yourPriv.value.trim().split("|");
-  const [pubML, pubFA] = yourPub.value.trim().split("|");
-  const sK = fromBase64(privML), sF = fromBase64(privFA), pF = fromBase64(pubFA);
+  const [privMLCustom, privFACustom] = yourPriv.value.trim().split("|");
+  const [pubMLCustom, pubFACustom] = yourPub.value.trim().split("|");
+  
+  const privML = decodeCustomToBase64(privMLCustom, encoderAlphabet);
+  const privFA = decodeCustomToBase64(privFACustom, encoderAlphabet);
+  const pubFA = decodeCustomToBase64(pubFACustom, encoderAlphabet);
+  
+  const sK = fromBase64(privML);
+  const sF = fromBase64(privFA);
+  const pF = fromBase64(pubFA);
+
   if (!sK || !sF || !pF) return showAlert("Invalid or missing keys.", true);
 
   const parts = val.split("|");
