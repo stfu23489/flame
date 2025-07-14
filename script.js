@@ -14,10 +14,9 @@ const _standardCharToInt = (() => {
     return map;
 })();
 
-function encodeBase64ToCustom(base64String, customAlphabet) {
-    const customAlphabet = encoderAlphabet
-    if (customAlphabet.length !== 4096) {
-        console.warn(`Warning: Custom alphabet length is ${customAlphabet.length}, expected 4096.`);
+function encodeBase64ToCustom(base64String) {
+    if (encoderAlphabet.length !== 4096) {
+        console.warn(`Warning: Custom alphabet length is ${encoderAlphabet.length}, expected 4096.`);
     }
 
     const cleanBase64String = base64String.replace(/=+$/, '');
@@ -32,63 +31,59 @@ function encodeBase64ToCustom(base64String, customAlphabet) {
             const value2 = _standardCharToInt[char2];
 
             if (value1 === undefined || value2 === undefined) {
-                console.error(`Error: Invalid base64 character encountered in pair '${char1}${char2}'. Skipping this pair.`);
+                console.error(`Error: Invalid base64 character in pair '${char1}${char2}'. Skipping.`);
                 continue;
             }
 
             const combined12BitValue = (value1 << 6) | value2;
 
-            if (combined12BitValue >= 0 && combined12BitValue < customAlphabet.length) {
-                mappedResult.push(customAlphabet[combined12BitValue]);
+            if (combined12BitValue >= 0 && combined12BitValue < encoderAlphabet.length) {
+                mappedResult.push(encoderAlphabet[combined12BitValue]);
             } else {
-                console.warn(`Warning: Combined 12-bit value ${combined12BitValue} is out of bounds for the custom alphabet. Skipping.`);
+                console.warn(`Warning: Combined value ${combined12BitValue} out of range.`);
             }
         } else {
-            mappedResult.push(cleanBase64String[i]);
+            mappedResult.push(cleanBase64String[i]); // last unmatched character
         }
     }
+
     return mappedResult.join("");
 }
 
-function decodeCustomToBase64(mappedString, customAlphabet) {
-    const customAlphabet = encoderAlphabet
-    if (customAlphabet.length !== 4096) {
-        console.warn(`Warning: Custom alphabet length is ${customAlphabet.length}, expected 4096 for decoding.`);
+function decodeCustomToBase64(mappedString) {
+    if (encoderAlphabet.length !== 4096) {
+        console.warn(`Warning: Custom alphabet length is ${encoderAlphabet.length}, expected 4096.`);
     }
 
     const customCharToInt = {};
-    for (let i = 0; i < customAlphabet.length; i++) {
-        customCharToInt[customAlphabet[i]] = i;
+    for (let i = 0; i < encoderAlphabet.length; i++) {
+        customCharToInt[encoderAlphabet[i]] = i;
     }
 
     const decodedStandardChars = [];
-    for (const charFromMapped of mappedString) {
-        const combined12BitValue = customCharToInt[charFromMapped];
+    for (const char of mappedString) {
+        const combined12BitValue = customCharToInt[char];
 
         if (combined12BitValue === undefined) {
-            if (_standardCharToInt[charFromMapped] !== undefined) {
-                decodedStandardChars.push(charFromMapped);
+            if (_standardCharToInt[char] !== undefined) {
+                decodedStandardChars.push(char); // likely unmatched tail character
             } else {
-                console.error(`Error: Character '${charFromMapped}' not found in custom alphabet or standard Base64 set. Skipping.`);
+                console.error(`Unknown character '${char}' – skipping.`);
             }
         } else {
             const value1 = (combined12BitValue >> 6) & 0x3F;
-            const value2 = (combined12BitValue) & 0x3F;
+            const value2 = combined12BitValue & 0x3F;
 
-            if (value1 >= 0 && value1 < 64 && value2 >= 0 && value2 < 64) {
-                decodedStandardChars.push(_standardBase64Chars[value1]);
-                decodedStandardChars.push(_standardBase64Chars[value2]);
-            } else {
-                console.error(`Error: Invalid 6-bit value derived (${value1}, ${value2}). Skipping character.`);
-            }
+            decodedStandardChars.push(_standardBase64Chars[value1]);
+            decodedStandardChars.push(_standardBase64Chars[value2]);
         }
     }
-    let standardBase64String = decodedStandardChars.join("");
 
-    while (standardBase64String.length % 4 !== 0) {
-        standardBase64String += '=';
+    while (decodedStandardChars.length % 4 !== 0) {
+        decodedStandardChars.push('=');
     }
-    return standardBase64String;
+
+    return decodedStandardChars.join("");
 }
 
 // Helpers
