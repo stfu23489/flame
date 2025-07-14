@@ -1,0 +1,183 @@
+:root {
+  --bg-dark: #1e1e2f;
+  --bg-light: #282a36;
+  --border-color: #44475a;
+  --text-main: #f8f8f2;
+  --text-secondary: #bd93f9;
+  --text-accent: #6272a4;
+  --accent-main: #50fa7b;
+  --accent-hover: #44c868;
+  --btn-bg: #bd93f9;
+  --btn-hover: #a580e0;
+  --btn-red: #ff5555;
+  --btn-red-hover: #d64747;
+  --btn-green: #50fa7b;
+  --btn-green-hover: #44c868;
+}
+
+body {
+  background-color: #121212;
+  color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+}
+
+h1, h2 {
+  font-weight: 800;
+}
+
+textarea,
+input,
+button {
+  font-family: 'IBM Plex Mono', monospace;
+  transition: all 0.2s ease-in-out;
+}
+
+.bg-dark {
+  background-color: var(--bg-dark);
+}
+
+.bg-dark-light {
+  background-color: var(--bg-light);
+}
+
+.border-dark {
+  border-color: var(--border-color);
+}
+
+.text-indigo-custom {
+  color: var(--text-secondary);
+}
+
+.text-indigo-custom-light {
+  color: var(--text-accent);
+}
+
+.btn-indigo {
+  background-color: var(--btn-bg);
+  color: #1e1e2f;
+  font-weight: 600;
+}
+
+.btn-indigo:hover {
+  background-color: var(--btn-hover);
+}
+
+.btn-green {
+  background-color: var(--btn-green);
+  color: #1e1e2f;
+  font-weight: 600;
+}
+
+.btn-green:hover {
+  background-color: var(--btn-green-hover);
+}
+
+.btn-red {
+  background-color: var(--btn-red);
+  color: #1e1e2f;
+  font-weight: 600;
+}
+
+.btn-red:hover {
+  background-color: var(--btn-red-hover);
+}
+
+.tab-btn {
+  cursor: pointer;
+  padding: 1rem 1.5rem;
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-accent);
+  background-color: transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+}
+
+.tab-btn.active {
+  color: var(--text-secondary);
+  border-bottom-color: var(--text-secondary);
+}
+
+textarea::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background-color: var(--btn-bg);
+  border-radius: 4px;
+}
+
+textarea,
+input,
+button {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+}
+
+textarea:focus,
+input:focus {
+  outline: none;
+  border-color: var(--text-secondary);
+  box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.3);
+  background-color: var(--bg-dark);
+}
+
+button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.4);
+}
+
+pre#verifyResult {
+  background-color: var(--bg-dark-light);
+  color: var(--accent-main);
+}
+
+.alert-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  width: 100%;
+  max-width: 24rem;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  transform: translateX(120%);
+  opacity: 0;
+}
+
+.alert-container.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.alert-success {
+  background-color: #22c55e;
+  color: #1a202c;
+}
+
+.alert-error {
+  background-color: #ff5555;
+  color: #1a202c;
+}
+
+.progress-bar-container {
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: white;
+  animation: progress-countdown 3s linear forwards;
+}
+
+@keyframes progress-countdown {
+  from { width: 100%; }
+  to { width: 0; }
+}
