@@ -21,91 +21,91 @@
 
     <div class="border-b border-dark">
       <nav class="flex -mb-0.5" id="tabsNav">
-        <button class="tab-btn active" data-tab="keys">Key Management</button>
-        <button class="tab-btn" data-tab="crypt">Encrypt / Decrypt</button>
+        <button class="tab-btn active" data-tab="keys">key management</button>
+        <button class="tab-btn" data-tab="crypt">encrypt / decrypt</button>
       </nav>
     </div>
 
     <div class="p-8" id="tabContents">
       <section id="keys" class="tab-content">
         <button id="genKeysBtn" class="mb-6 w-full btn-indigo rounded-xl font-semibold py-4 transition">
-          Generate Your Keypairs
+          generate your keypairs
         </button>
 
-        <label class="block text-sm font-semibold text-text-secondary mb-2">Your Combined Public Key</label>
+        <label class="block text-sm font-semibold text-text-secondary mb-2">your combined public key</label>
         <textarea
           id="yourPublicKey"
           rows="4"
           readonly
-          placeholder="Public Key"
+          placeholder="public key"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
-        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Your Combined Private Key</label>
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">your combined private key</label>
         <textarea
           id="yourPrivateKey"
           rows="4"
           readonly
-          placeholder="Private Key"
+          placeholder="private key"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
-        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Import / Export Keys</label>
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">import / export keys</label>
         <textarea
           id="importExportKeys"
           rows="4"
-          placeholder="Paste keys here to import or click Export"
+          placeholder="paste keys here to import or click export"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
         <div class="flex space-x-4 mt-4">
           <button id="importKeysBtn" class="btn-indigo flex-1 rounded-xl font-semibold py-3 transition">
-            Import Keys
+            import keys
           </button>
           <button id="exportKeysBtn" class="btn-indigo flex-1 rounded-xl font-semibold py-3 transition">
-            Export Keys
+            export keys
           </button>
         </div>
       </section>
 
       <section id="crypt" class="tab-content hidden">
-        <label class="block text-sm font-semibold text-text-secondary mb-2">Recipient Combined Public Key</label>
+        <label class="block text-sm font-semibold text-text-secondary mb-2">recipient combined public key</label>
         <textarea
           id="recipientPublicKey"
           rows="4"
-          placeholder="Public Key"
+          placeholder="public key"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
         <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">
-          Input
+          input
         </label>
         <textarea
           id="inputText"
           rows="6"
-          placeholder="Plaintext or encrypted text"
+          placeholder="plaintext or encrypted text"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
         <div class="flex space-x-4 mt-4">
           <button id="encryptSignBtn" class="btn-green flex-1 rounded-xl font-semibold py-3 transition">
-            Encrypt & Sign
+            encrypt & sign
           </button>
           <button id="decryptVerifyBtn" class="btn-red flex-1 rounded-xl font-semibold py-3 transition">
-            Decrypt & Verify
+            decrypt & verify
           </button>
         </div>
 
-        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Output</label>
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">output</label>
         <textarea
           id="outputText"
           rows="6"
           readonly
-          placeholder="Output text or encrypted text"
+          placeholder="output text or encrypted text"
           class="w-full rounded-lg p-3 bg-dark-light border-dark focus:border-text-secondary"
         ></textarea>
 
-        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">Signature Verification Result</label>
+        <label class="block text-sm font-semibold text-text-secondary mt-6 mb-2">signature verification result</label>
         <pre
           id="verifyResult"
           class="whitespace-pre-wrap rounded-lg p-4 text-sm font-mono min-h-[3rem] border border-dark bg-dark-light text-accent-main"
@@ -115,10 +115,10 @@
   </div>
 
   <div class="text-sm text-center text-gray-500 mt-4 font-mono">
-    version 2.2
+    version 2.21
   </div>
   <a href="https://github.com/stfu23489/flame" class="text-sm text-center text-indigo-custom hover:text-indigo-custom-light mt-2 font-mono transition-colors duration-200">
-    View Source Code
+    view source code
   </a>
 
   <div id="alertPopup" class="alert-container rounded-lg shadow-xl overflow-hidden p-4">
