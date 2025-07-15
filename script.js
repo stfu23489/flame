@@ -15,7 +15,7 @@ const _standardCharToInt = (() => {
 
 function encodeBase64ToCustom(base64String, customAlphabet) {
   if (customAlphabet.length !== 4096) {
-    console.warn(`warning: custom alphabet length is ${customAlphabet.length}, expected 4096.`);
+    console.warn(`warning: custom alphabet length is ${customAlphabet.length}, expected 4096`);
   }
 
   const cleanBase64String = base64String.replace(/=+$/, '');
@@ -38,7 +38,7 @@ function encodeBase64ToCustom(base64String, customAlphabet) {
 
 function decodeCustomToBase64(mappedString, customAlphabet) {
   if (customAlphabet.length !== 4096) {
-    console.warn(`warning: custom alphabet length is ${customAlphabet.length}, expected 4096.`);
+    console.warn(`warning: custom alphabet length is ${customAlphabet.length}, expected 4096`);
   }
 
   const customCharToInt = {};
@@ -156,9 +156,9 @@ genKeysBtn.addEventListener('click', async () => {
     yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
     yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
     
-    showAlert("keypairs generated successfully!");
+    showAlert("keypairs generated successfully");
   } catch (e) {
-    showAlert("key generation failed.", true);
+    showAlert("key generation failed", true);
     console.error(e);
   } finally {
     genKeysBtn.disabled = false;
@@ -169,7 +169,7 @@ genKeysBtn.addEventListener('click', async () => {
 
 // Export Keys
 exportBtn.addEventListener('click', async () => {
-  if (!mlkemPub || !faPub || !mlkemPriv || !faPriv) return showAlert("generate or import keys first.", true);
+  if (!mlkemPub || !faPub || !mlkemPriv || !faPriv) return showAlert("generate or import keys first", true);
   try {
     const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
     const [mlkemPrivCustom, faPrivCustom] = yourPriv.value.split("|");
@@ -186,9 +186,9 @@ exportBtn.addEventListener('click', async () => {
       faPriv: faPrivBase64,
     });
     impExp.value = await compressString(rawKeys);
-    showAlert("keys exported and compressed.");
+    showAlert("keys exported and compressed");
   } catch (e) {
-    showAlert("export failed.", true);
+    showAlert("export failed", true);
     console.error(e);
   }
 });
@@ -196,10 +196,10 @@ exportBtn.addEventListener('click', async () => {
 // Import Keys
 importBtn.addEventListener('click', async () => {
   const compressedData = impExp.value.trim();
-  if (!compressedData) return showAlert("paste key data first.", true);
+  if (!compressedData) return showAlert("paste key data first", true);
   try {
     const decompressed = await decompressString(compressedData);
-    if (!decompressed) return showAlert("decompression failed.", true);
+    if (!decompressed) return showAlert("decompression failed", true);
 
     const keys = JSON.parse(decompressed);
     mlkemPub = fromBase64(keys.mlkemPub);
@@ -215,10 +215,10 @@ importBtn.addEventListener('click', async () => {
     yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
     yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
     
-    showAlert("keys imported successfully.");
+    showAlert("keys imported successfully");
     clearOutput();
   } catch (e) {
-    showAlert("import failed.", true);
+    showAlert("import failed", true);
     console.error(e);
   }
 });
@@ -228,7 +228,7 @@ encBtn.addEventListener('click', async () => {
   clearOutput();
   const msg = inp.value.trim();
   const rec = recPub.value.trim();
-  if (!msg || !rec) return showAlert("message and recipient key required.", true);
+  if (!msg || !rec) return showAlert("message and recipient key required", true);
 
   const [rkpStrCustom, rfpStrCustom] = rec.split("|");
   const rkpStr = decodeCustomToBase64(rkpStrCustom, encoderAlphabet);
@@ -236,7 +236,7 @@ encBtn.addEventListener('click', async () => {
 
   const rkp = fromBase64(rkpStr);
   const rfp = fromBase64(rfpStr);
-  if (!rkp || !rfp) return showAlert("invalid recipient keys.", true);
+  if (!rkp || !rfp) return showAlert("invalid recipient keys", true);
 
   try {
     if (!kem) kem = new MlKem768();
@@ -260,9 +260,9 @@ encBtn.addEventListener('click', async () => {
     ].join("|");
 
     out.value = encoded;
-    showAlert("encryption & signing complete!");
+    showAlert("encryption & signing complete");
   } catch (e) {
-    showAlert("encryption failed.", true);
+    showAlert("encryption failed", true);
     console.error(e);
   }
 });
@@ -271,7 +271,7 @@ encBtn.addEventListener('click', async () => {
 decBtn.addEventListener('click', async () => {
   clearOutput();
   const val = inp.value.trim();
-  if (!val) return showAlert("enter encrypted input.", true);
+  if (!val) return showAlert("enter encrypted input", true);
 
   const [privMLCustom, privFACustom] = yourPriv.value.trim().split("|");
   const [pubMLCustom, pubFACustom] = recPub.value.trim().split("|");
@@ -284,13 +284,13 @@ decBtn.addEventListener('click', async () => {
   const sF = fromBase64(privFA);
   const pF = fromBase64(pubFA);
 
-  if (!sK || !sF || !pF) return showAlert("invalid or missing keys.", true);
+  if (!sK || !sF || !pF) return showAlert("invalid or missing keys", true);
 
   const parts = val.split("|");
-  if (parts.length !== 3) return showAlert("incorrect input format.", true);
+  if (parts.length !== 3) return showAlert("incorrect input format", true);
 
   const [ctK, ivStr, ctStr] = parts.map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
-  if (!ctK || !ivStr || !ctStr) return showAlert("invalid encoded data.", true);
+  if (!ctK || !ivStr || !ctStr) return showAlert("invalid encoded data", true);
 
   try {
     if (!kem) kem = new MlKem768();
@@ -301,16 +301,18 @@ decBtn.addEventListener('click', async () => {
     const decompressed = await decompressString(toBase64(decrypted));
     const { m, s } = JSON.parse(decompressed);
 
-    if (!m || !s) return res.textContent = "❌ missing message or signature.";
+    if (!m || !s) return showAlert("missing message or signature", true);
 
     if (!falcon) falcon = await pqcSignFalcon512();
     const valid = await falcon.verify(fromBase64(s), new TextEncoder().encode(m), pF);
 
     out.value = m;
-    res.textContent = valid ? "✅ signature is valid." : "❌ signature is invalid.";
-    showAlert("decryption & verification complete!");
+    valid ? (res.textContent = "✅ signature is valid", res.style.color = "#90ee90") 
+      : (res.textContent = "❌ signature is invalid", res.style.color = "#f08080");
+
+    showAlert("decryption & verification complete");
   } catch (e) {
-    showAlert("decryption or verification failed.", true);
+    showAlert("decryption or verification failed", true);
     console.error(e);
   }
 });
