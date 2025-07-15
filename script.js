@@ -274,7 +274,7 @@ decBtn.addEventListener('click', async () => {
   if (!val) return showAlert("Enter encrypted input.", true);
 
   const [privMLCustom, privFACustom] = yourPriv.value.trim().split("|");
-  const [pubMLCustom, pubFACustom] = yourPub.value.trim().split("|");
+  const [pubMLCustom, pubFACustom] = recPub.value.trim().split("|");
   
   const privML = decodeCustomToBase64(privMLCustom, encoderAlphabet);
   const privFA = decodeCustomToBase64(privFACustom, encoderAlphabet);
