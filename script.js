@@ -162,7 +162,7 @@ genKeysBtn.addEventListener('click', async () => {
     console.error(e);
   } finally {
     genKeysBtn.disabled = false;
-    genKeysBtn.textContent = "generate your keypairs (mlkem + falcon)";
+    genKeysBtn.textContent = "generate your keypairs";
     clearOutput();
   }
 });
