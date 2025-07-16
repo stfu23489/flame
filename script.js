@@ -129,9 +129,7 @@ function showAlert(message, isError = false) {
   void alertProgressBar.offsetWidth;
   alertProgressBar.style.animation = null;
   
-  if (alertTimeout) {
-    clearTimeout(alertTimeout);
-  }
+  clearTimeout(alertTimeout);
   alertTimeout = setTimeout(() => alertPopup.classList.remove('show'), 3000);
 }
 
