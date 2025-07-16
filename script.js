@@ -118,6 +118,7 @@ const alertProgressBar = document.getElementById('alertProgressBar');
 // State
 let kem, falcon, mlkemPub, mlkemPriv, faPub, faPriv;
 
+var alertTimeout;
 function showAlert(message, isError = false) {
   alertMessage.textContent = message.toLowerCase();
   alertPopup.classList.remove('alert-success', 'alert-error');
@@ -127,8 +128,11 @@ function showAlert(message, isError = false) {
   alertProgressBar.style.animation = 'none';
   void alertProgressBar.offsetWidth;
   alertProgressBar.style.animation = null;
-
-  setTimeout(() => alertPopup.classList.remove('show'), 3000);
+  
+  if (alertTimeout) {
+    clearTimeout(alertTimeout);
+  }
+  alertTimeout = setTimeout(() => alertPopup.classList.remove('show'), 3000);
 }
 
 function clearOutput() {
