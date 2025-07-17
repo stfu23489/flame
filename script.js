@@ -115,9 +115,6 @@ const alertPopup = document.getElementById('alertPopup');
 const alertMessage = document.getElementById('alertMessage');
 const alertProgressBar = document.getElementById('alertProgressBar');
 
-// State
-let kem, falcon, mlkemPub, mlkemPriv, faPub, faPriv;
-
 var alertTimeout;
 function showAlert(message, isError = false) {
   alertMessage.textContent = message.toLowerCase();
@@ -143,17 +140,15 @@ genKeysBtn.addEventListener('click', async () => {
   genKeysBtn.disabled = true;
   genKeysBtn.textContent = "generating...";
   try {
-    kem = new MlKem768();
-    [mlkemPub, mlkemPriv] = await kem.generateKeyPair();
-    falcon = await pqcSignFalcon512();
+    const kem = new MlKem768();
+    const [mlkemPub, mlkemPriv] = await kem.generateKeyPair();
+    const falcon = await pqcSignFalcon512();
     const fk = await falcon.keypair();
-    faPub = fk.publicKey;
-    faPriv = fk.privateKey;
 
     const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub), encoderAlphabet);
     const mlkemPrivCustom = encodeBase64ToCustom(toBase64(mlkemPriv), encoderAlphabet);
-    const faPubCustom = encodeBase64ToCustom(toBase64(faPub), encoderAlphabet);
-    const faPrivCustom = encodeBase64ToCustom(toBase64(faPriv), encoderAlphabet);
+    const faPubCustom = encodeBase64ToCustom(toBase64(fk.publicKey), encoderAlphabet);
+    const faPrivCustom = encodeBase64ToCustom(toBase64(fk.privateKey), encoderAlphabet);
 
     yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
     yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
@@ -171,7 +166,7 @@ genKeysBtn.addEventListener('click', async () => {
 
 // Export Keys
 exportBtn.addEventListener('click', async () => {
-  if (!mlkemPub || !faPub || !mlkemPriv || !faPriv) return showAlert("generate or import keys first", true);
+  if (!yourPub.value || !yourPriv.value) return showAlert("generate or import keys first", true);
   try {
     const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
     const [mlkemPrivCustom, faPrivCustom] = yourPriv.value.split("|");
@@ -180,13 +175,14 @@ exportBtn.addEventListener('click', async () => {
     const faPubBase64 = decodeCustomToBase64(faPubCustom, encoderAlphabet);
     const mlkemPrivBase64 = decodeCustomToBase64(mlkemPrivCustom, encoderAlphabet);
     const faPrivBase64 = decodeCustomToBase64(faPrivCustom, encoderAlphabet);
-    
+
     const rawKeys = JSON.stringify({
       mlkemPub: mlkemPubBase64,
       faPub: faPubBase64,
       mlkemPriv: mlkemPrivBase64,
       faPriv: faPrivBase64,
     });
+
     impExp.value = await compressString(rawKeys);
     showAlert("keys exported and compressed");
   } catch (e) {
@@ -204,11 +200,6 @@ importBtn.addEventListener('click', async () => {
     if (!decompressed) return showAlert("decompression failed", true);
 
     const keys = JSON.parse(decompressed);
-    mlkemPub = fromBase64(keys.mlkemPub);
-    faPub = fromBase64(keys.faPub);
-    mlkemPriv = fromBase64(keys.mlkemPriv);
-    faPriv = fromBase64(keys.faPriv);
-
     const mlkemPubCustom = encodeBase64ToCustom(keys.mlkemPub, encoderAlphabet);
     const faPubCustom = encodeBase64ToCustom(keys.faPub, encoderAlphabet);
     const mlkemPrivCustom = encodeBase64ToCustom(keys.mlkemPriv, encoderAlphabet);
@@ -216,7 +207,7 @@ importBtn.addEventListener('click', async () => {
 
     yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
     yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
-    
+
     showAlert("keys imported successfully");
     clearOutput();
   } catch (e) {
@@ -232,19 +223,17 @@ encBtn.addEventListener('click', async () => {
   const rec = recPub.value.trim();
   if (!msg || !rec) return showAlert("message and recipient key required", true);
 
-  const [rkpStrCustom, rfpStrCustom] = rec.split("|");
-  const rkpStr = decodeCustomToBase64(rkpStrCustom, encoderAlphabet);
-  const rfpStr = decodeCustomToBase64(rfpStrCustom, encoderAlphabet);
-
-  const rkp = fromBase64(rkpStr);
-  const rfp = fromBase64(rfpStr);
-  if (!rkp || !rfp) return showAlert("invalid recipient keys", true);
-
   try {
-    if (!kem) kem = new MlKem768();
+    const [rkpStrCustom, rfpStrCustom] = rec.split("|");
+    const rkp = fromBase64(decodeCustomToBase64(rkpStrCustom, encoderAlphabet));
+    const rfp = fromBase64(decodeCustomToBase64(rfpStrCustom, encoderAlphabet));
+    if (!rkp || !rfp) return showAlert("invalid recipient keys", true);
+
+    const kem = new MlKem768();
     const [ctMLKem, shared] = await kem.encap(rkp);
 
-    if (!falcon) falcon = await pqcSignFalcon512();
+    const falcon = await pqcSignFalcon512();
+    const faPriv = fromBase64(decodeCustomToBase64(yourPriv.value.split("|")[1], encoderAlphabet));
     const signature = (await falcon.sign(new TextEncoder().encode(msg), faPriv)).signature;
 
     const payload = JSON.stringify({ m: msg, s: toBase64(signature) });
@@ -275,27 +264,20 @@ decBtn.addEventListener('click', async () => {
   const val = inp.value.trim();
   if (!val) return showAlert("enter encrypted input", true);
 
-  const [privMLCustom, privFACustom] = yourPriv.value.trim().split("|");
-  const [pubMLCustom, pubFACustom] = recPub.value.trim().split("|");
-  
-  const privML = decodeCustomToBase64(privMLCustom, encoderAlphabet);
-  const privFA = decodeCustomToBase64(privFACustom, encoderAlphabet);
-  const pubFA = decodeCustomToBase64(pubFACustom, encoderAlphabet);
-  
-  const sK = fromBase64(privML);
-  const sF = fromBase64(privFA);
-  const pF = fromBase64(pubFA);
-
-  if (!sK || !sF || !pF) return showAlert("invalid or missing keys", true);
-
-  const parts = val.split("|");
-  if (parts.length !== 3) return showAlert("incorrect input format", true);
-
-  const [ctK, ivStr, ctStr] = parts.map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
-  if (!ctK || !ivStr || !ctStr) return showAlert("invalid encoded data", true);
-
   try {
-    if (!kem) kem = new MlKem768();
+    const [privMLCustom, privFACustom] = yourPriv.value.trim().split("|");
+    const [pubMLCustom, pubFACustom] = recPub.value.trim().split("|");
+
+    const sK = fromBase64(decodeCustomToBase64(privMLCustom, encoderAlphabet));
+    const sF = fromBase64(decodeCustomToBase64(privFACustom, encoderAlphabet));
+    const pF = fromBase64(decodeCustomToBase64(pubFACustom, encoderAlphabet));
+
+    if (!sK || !sF || !pF) return showAlert("invalid or missing keys", true);
+
+    const [ctK, ivStr, ctStr] = val.split("|").map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
+    if (!ctK || !ivStr || !ctStr) return showAlert("invalid encoded data", true);
+
+    const kem = new MlKem768();
     const shared = await kem.decap(ctK, sK);
     const aesKey = await crypto.subtle.importKey("raw", shared, "AES-GCM", false, ["decrypt"]);
 
@@ -305,12 +287,12 @@ decBtn.addEventListener('click', async () => {
 
     if (!m || !s) return showAlert("missing message or signature", true);
 
-    if (!falcon) falcon = await pqcSignFalcon512();
+    const falcon = await pqcSignFalcon512();
     const valid = await falcon.verify(fromBase64(s), new TextEncoder().encode(m), pF);
 
     out.value = m;
-    valid ? (res.textContent = "✅ signature is valid", res.style.color = "#90ee90") 
-      : (res.textContent = "❌ signature is invalid", res.style.color = "#f08080");
+    res.textContent = valid ? "✅ signature is valid" : "❌ signature is invalid";
+    res.style.color = valid ? "#90ee90" : "#f08080";
 
     showAlert("decryption & verification complete");
   } catch (e) {
@@ -329,76 +311,4 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       sec.classList.toggle('hidden', sec.id !== tgt);
     });
   });
-});
-
-// Reinitialization state
-let falconInitPromise = null;
-
-// Ensure cryptographic engines are initialized safely
-async function ensureCryptoInitialized() {
-  try {
-    if (!kem) {
-      kem = new MlKem768();
-    }
-
-    if (!falcon) {
-      if (!falconInitPromise) {
-        falconInitPromise = pqcSignFalcon512()
-          .then(instance => {
-            falcon = instance;
-            return instance;
-          })
-          .catch(err => {
-            falconInitPromise = null; // Reset if loading failed
-            console.error("Falcon init failed:", err);
-            throw err;
-          });
-      }
-      await falconInitPromise;
-    }
-  } catch (e) {
-    console.warn("Crypto reinitialization failed", e);
-  }
-}
-
-// Rehydrate keys from DOM inputs if needed
-function restoreKeyStateFromDOM() {
-  try {
-    if (yourPub.value && yourPriv.value) {
-      const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
-      const [mlkemPrivCustom, faPrivCustom] = yourPriv.value.split("|");
-
-      mlkemPub = fromBase64(decodeCustomToBase64(mlkemPubCustom, encoderAlphabet));
-      mlkemPriv = fromBase64(decodeCustomToBase64(mlkemPrivCustom, encoderAlphabet));
-      faPub = fromBase64(decodeCustomToBase64(faPubCustom, encoderAlphabet));
-      faPriv = fromBase64(decodeCustomToBase64(faPrivCustom, encoderAlphabet));
-      return true;
-    }
-  } catch (e) {
-    console.warn("Failed to restore keys from DOM", e);
-  }
-  return false;
-}
-
-// Main reinitialization function
-async function reinitializeIfNeeded() {
-  if (!mlkemPub || !mlkemPriv || !faPub || !faPriv) {
-    const restored = restoreKeyStateFromDOM();
-    if (!restored) {
-      console.warn("Keys not restored; skipping crypto initialization");
-      return;
-    }
-  }
-
-  if (!kem || !falcon) {
-    await ensureCryptoInitialized();
-    console.log("✅ Crypto engines initialized after resume");
-  }
-}
-
-// Listen for when user comes back (page becomes visible)
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    reinitializeIfNeeded();
-  }
 });
