@@ -1,5 +1,6 @@
 import { MlKem768 } from "https://esm.sh/mlkem";
 import pqcSignFalcon512 from "https://cdn.jsdelivr.net/npm/@dashlane/pqc-sign-falcon-512-browser@1.0.0/dist/pqc-sign-falcon-512.min.js";
+
 let encoderAlphabet = '';
 
 fetch('encoderalphabet.txt')
@@ -18,9 +19,9 @@ const _standardCharToInt = (() => {
   return map;
 })();
 
-function encodeBase64ToCustom(base64String, customAlphabet) {
-  if (customAlphabet.length !== 4096) {
-    console.warn(`warning: custom alphabet length is ${customAlphabet.length}, expected 4096`);
+function encodeBase64ToCustom(base64String) {
+  if (encoderAlphabet.length !== 4096) {
+    console.warn(`warning: encoderAlphabet length is ${encoderAlphabet.length}, expected 4096`);
   }
 
   const cleanBase64String = base64String.replace(/=+$/, '');
@@ -32,7 +33,7 @@ function encodeBase64ToCustom(base64String, customAlphabet) {
       const value2 = _standardCharToInt[cleanBase64String[i + 1]];
       if (value1 === undefined || value2 === undefined) continue;
       const combined12BitValue = (value1 << 6) | value2;
-      mappedResult.push(customAlphabet[combined12BitValue]);
+      mappedResult.push(encoderAlphabet[combined12BitValue]);
     } else {
       mappedResult.push(cleanBase64String[i]);
     }
@@ -41,14 +42,14 @@ function encodeBase64ToCustom(base64String, customAlphabet) {
   return mappedResult.join("");
 }
 
-function decodeCustomToBase64(mappedString, customAlphabet) {
-  if (customAlphabet.length !== 4096) {
-    console.warn(`warning: custom alphabet length is ${customAlphabet.length}, expected 4096`);
+function decodeCustomToBase64(mappedString) {
+  if (encoderAlphabet.length !== 4096) {
+    console.warn(`warning: encoderAlphabet length is ${encoderAlphabet.length}, expected 4096`);
   }
 
   const customCharToInt = {};
-  for (let i = 0; i < customAlphabet.length; i++) {
-    customCharToInt[customAlphabet[i]] = i;
+  for (let i = 0; i < encoderAlphabet.length; i++) {
+    customCharToInt[encoderAlphabet[i]] = i;
   }
 
   const decoded = [];
@@ -130,7 +131,7 @@ function showAlert(message, isError = false) {
   alertProgressBar.style.animation = 'none';
   void alertProgressBar.offsetWidth;
   alertProgressBar.style.animation = null;
-  
+
   clearTimeout(alertTimeout);
   alertTimeout = setTimeout(() => alertPopup.classList.remove('show'), 3000);
 }
@@ -150,14 +151,14 @@ genKeysBtn.addEventListener('click', async () => {
     const falcon = await pqcSignFalcon512();
     const fk = await falcon.keypair();
 
-    const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub), encoderAlphabet);
-    const mlkemPrivCustom = encodeBase64ToCustom(toBase64(mlkemPriv), encoderAlphabet);
-    const faPubCustom = encodeBase64ToCustom(toBase64(fk.publicKey), encoderAlphabet);
-    const faPrivCustom = encodeBase64ToCustom(toBase64(fk.privateKey), encoderAlphabet);
+    const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub));
+    const mlkemPrivCustom = encodeBase64ToCustom(toBase64(mlkemPriv));
+    const faPubCustom = encodeBase64ToCustom(toBase64(fk.publicKey));
+    const faPrivCustom = encodeBase64ToCustom(toBase64(fk.privateKey));
 
     yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
     yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
-    
+
     showAlert("keypairs generated successfully");
   } catch (e) {
     showAlert("key generation failed", true);
@@ -176,10 +177,10 @@ exportBtn.addEventListener('click', async () => {
     const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
     const [mlkemPrivCustom, faPrivCustom] = yourPriv.value.split("|");
 
-    const mlkemPubBase64 = decodeCustomToBase64(mlkemPubCustom, encoderAlphabet);
-    const faPubBase64 = decodeCustomToBase64(faPubCustom, encoderAlphabet);
-    const mlkemPrivBase64 = decodeCustomToBase64(mlkemPrivCustom, encoderAlphabet);
-    const faPrivBase64 = decodeCustomToBase64(faPrivCustom, encoderAlphabet);
+    const mlkemPubBase64 = decodeCustomToBase64(mlkemPubCustom);
+    const faPubBase64 = decodeCustomToBase64(faPubCustom);
+    const mlkemPrivBase64 = decodeCustomToBase64(mlkemPrivCustom);
+    const faPrivBase64 = decodeCustomToBase64(faPrivCustom);
 
     const rawKeys = JSON.stringify({
       mlkemPub: mlkemPubBase64,
@@ -205,10 +206,10 @@ importBtn.addEventListener('click', async () => {
     if (!decompressed) return showAlert("decompression failed", true);
 
     const keys = JSON.parse(decompressed);
-    const mlkemPubCustom = encodeBase64ToCustom(keys.mlkemPub, encoderAlphabet);
-    const faPubCustom = encodeBase64ToCustom(keys.faPub, encoderAlphabet);
-    const mlkemPrivCustom = encodeBase64ToCustom(keys.mlkemPriv, encoderAlphabet);
-    const faPrivCustom = encodeBase64ToCustom(keys.faPriv, encoderAlphabet);
+    const mlkemPubCustom = encodeBase64ToCustom(keys.mlkemPub);
+    const faPubCustom = encodeBase64ToCustom(keys.faPub);
+    const mlkemPrivCustom = encodeBase64ToCustom(keys.mlkemPriv);
+    const faPrivCustom = encodeBase64ToCustom(keys.faPriv);
 
     yourPub.value = `${mlkemPubCustom}|${faPubCustom}`;
     yourPriv.value = `${mlkemPrivCustom}|${faPrivCustom}`;
@@ -230,15 +231,15 @@ encBtn.addEventListener('click', async () => {
 
   try {
     const [rkpStrCustom, rfpStrCustom] = rec.split("|");
-    const rkp = fromBase64(decodeCustomToBase64(rkpStrCustom, encoderAlphabet));
-    const rfp = fromBase64(decodeCustomToBase64(rfpStrCustom, encoderAlphabet));
+    const rkp = fromBase64(decodeCustomToBase64(rkpStrCustom));
+    const rfp = fromBase64(decodeCustomToBase64(rfpStrCustom));
     if (!rkp || !rfp) return showAlert("invalid recipient keys", true);
 
     const kem = new MlKem768();
     const [ctMLKem, shared] = await kem.encap(rkp);
 
     const falcon = await pqcSignFalcon512();
-    const faPriv = fromBase64(decodeCustomToBase64(yourPriv.value.split("|")[1], encoderAlphabet));
+    const faPriv = fromBase64(decodeCustomToBase64(yourPriv.value.split("|")[1]));
     const signature = (await falcon.sign(new TextEncoder().encode(msg), faPriv)).signature;
 
     const payload = JSON.stringify({ m: msg, s: toBase64(signature) });
@@ -250,9 +251,9 @@ encBtn.addEventListener('click', async () => {
     const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, compressedBytes));
 
     const encoded = [
-      encodeBase64ToCustom(toBase64(ctMLKem), encoderAlphabet),
-      encodeBase64ToCustom(toBase64(iv), encoderAlphabet),
-      encodeBase64ToCustom(toBase64(ciphertext), encoderAlphabet)
+      encodeBase64ToCustom(toBase64(ctMLKem)),
+      encodeBase64ToCustom(toBase64(iv)),
+      encodeBase64ToCustom(toBase64(ciphertext))
     ].join("|");
 
     out.value = encoded;
@@ -273,13 +274,13 @@ decBtn.addEventListener('click', async () => {
     const [privMLCustom, privFACustom] = yourPriv.value.trim().split("|");
     const [pubMLCustom, pubFACustom] = recPub.value.trim().split("|");
 
-    const sK = fromBase64(decodeCustomToBase64(privMLCustom, encoderAlphabet));
-    const sF = fromBase64(decodeCustomToBase64(privFACustom, encoderAlphabet));
-    const pF = fromBase64(decodeCustomToBase64(pubFACustom, encoderAlphabet));
+    const sK = fromBase64(decodeCustomToBase64(privMLCustom));
+    const sF = fromBase64(decodeCustomToBase64(privFACustom));
+    const pF = fromBase64(decodeCustomToBase64(pubFACustom));
 
     if (!sK || !sF || !pF) return showAlert("invalid or missing keys", true);
 
-    const [ctK, ivStr, ctStr] = val.split("|").map(p => fromBase64(decodeCustomToBase64(p, encoderAlphabet)));
+    const [ctK, ivStr, ctStr] = val.split("|").map(p => fromBase64(decodeCustomToBase64(p)));
     if (!ctK || !ivStr || !ctStr) return showAlert("invalid encoded data", true);
 
     const kem = new MlKem768();
