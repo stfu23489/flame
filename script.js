@@ -8,7 +8,7 @@ fetch('encoderalphabet.txt')
   .then(data => {
     encoderAlphabet = data;
   })
-  .catch(error => console.error("Error loading file:", error));
+  .catch(error => showAlert("error loading encoder alphabet: " + (error?.message || error), true));
 
 const _standardBase64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const _standardCharToInt = (() => {
@@ -161,8 +161,7 @@ genKeysBtn.addEventListener('click', async () => {
 
     showAlert("keypairs generated successfully");
   } catch (e) {
-    showAlert("key generation failed", true);
-    console.error(e);
+    showAlert("key generation failed: " + (e?.message || e), true);
   } finally {
     genKeysBtn.disabled = false;
     genKeysBtn.textContent = "generate your keypairs";
@@ -192,8 +191,7 @@ exportBtn.addEventListener('click', async () => {
     impExp.value = await compressString(rawKeys);
     showAlert("keys exported and compressed");
   } catch (e) {
-    showAlert("export failed", true);
-    console.error(e);
+    showAlert("export failed: " + (e?.message || e), true);
   }
 });
 
@@ -217,8 +215,7 @@ importBtn.addEventListener('click', async () => {
     showAlert("keys imported successfully");
     clearOutput();
   } catch (e) {
-    showAlert("import failed", true);
-    console.error(e);
+    showAlert("import failed: " + (e?.message || e), true);
   }
 });
 
@@ -259,8 +256,7 @@ encBtn.addEventListener('click', async () => {
     out.value = encoded;
     showAlert("encryption & signing complete");
   } catch (e) {
-    showAlert("encryption failed", true);
-    console.error(e);
+    showAlert("encryption failed: " + (e?.message || e), true);
   }
 });
 
@@ -302,8 +298,7 @@ decBtn.addEventListener('click', async () => {
 
     showAlert("decryption & verification complete");
   } catch (e) {
-    showAlert("decryption or verification failed", true);
-    console.error(e);
+    showAlert("decryption or verification failed: " + (e?.message || e), true);
   }
 });
 
