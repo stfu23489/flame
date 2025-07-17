@@ -364,10 +364,6 @@ async function ensureCryptoInitialized() {
 // Rehydrate keys from DOM inputs if needed
 function restoreKeyStateFromDOM() {
   try {
-    if (!encoderAlphabet || encoderAlphabet.length !== 4096) {
-      console.warn("Encoder alphabet not initialized or invalid; skipping key restore");
-      return false;
-    }
     if (yourPub.value && yourPriv.value) {
       const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
       const [mlkemPrivCustom, faPrivCustom] = yourPriv.value.split("|");
@@ -378,16 +374,14 @@ function restoreKeyStateFromDOM() {
       faPriv = fromBase64(decodeCustomToBase64(faPrivCustom, encoderAlphabet));
       return true;
     }
-    return false;
   } catch (e) {
     console.warn("Failed to restore keys from DOM", e);
-    return false;
   }
+  return false;
 }
 
 // Main reinitialization function
 async function reinitializeIfNeeded() {
-  // Only restore keys if they are not set already
   if (!mlkemPub || !mlkemPriv || !faPub || !faPriv) {
     const restored = restoreKeyStateFromDOM();
     if (!restored) {
@@ -396,22 +390,13 @@ async function reinitializeIfNeeded() {
     }
   }
 
-  // Only initialize crypto engines if not ready
   if (!kem || !falcon) {
     await ensureCryptoInitialized();
     console.log("✅ Crypto engines initialized after resume");
-  } else {
-    console.log("✅ Crypto engines already initialized; no action needed");
   }
 }
 
-// Restore on Safari bfcache or visibility resume
-window.addEventListener('pageshow', (event) => {
-  if (event.persisted || performance.getEntriesByType('navigation')[0]?.type === "back_forward") {
-    reinitializeIfNeeded();
-  }
-});
-
+// Listen for when user comes back (page becomes visible)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     reinitializeIfNeeded();
