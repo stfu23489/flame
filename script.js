@@ -330,3 +330,68 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
   });
 });
+
+// Reinitialization state
+let falconInitPromise = null;
+
+// Ensure cryptographic engines are initialized safely
+async function ensureCryptoInitialized() {
+  try {
+    if (!kem) kem = new MlKem768();
+
+    if (!falcon) {
+      if (!falconInitPromise) {
+        falconInitPromise = pqcSignFalcon512()
+          .then(instance => {
+            falcon = instance;
+            return instance;
+          })
+          .catch(err => {
+            falconInitPromise = null; // Reset if loading failed
+            console.error("Falcon init failed:", err);
+            throw err;
+          });
+      }
+      await falconInitPromise;
+    }
+  } catch (e) {
+    console.warn("Crypto reinitialization failed", e);
+  }
+}
+
+// Rehydrate keys from DOM inputs if needed
+function restoreKeyStateFromDOM() {
+  try {
+    if (yourPub.value && yourPriv.value) {
+      const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
+      const [mlkemPrivCustom, faPrivCustom] = yourPriv.value.split("|");
+
+      mlkemPub = fromBase64(decodeCustomToBase64(mlkemPubCustom, encoderAlphabet));
+      mlkemPriv = fromBase64(decodeCustomToBase64(mlkemPrivCustom, encoderAlphabet));
+      faPub = fromBase64(decodeCustomToBase64(faPubCustom, encoderAlphabet));
+      faPriv = fromBase64(decodeCustomToBase64(faPrivCustom, encoderAlphabet));
+    }
+  } catch (e) {
+    console.warn("Failed to restore keys from DOM", e);
+  }
+}
+
+// Main reinitialization function
+async function reinitializeIfNeeded() {
+  restoreKeyStateFromDOM();
+  await ensureCryptoInitialized();
+  console.log("Reinitialized cryptographic state after resume");
+}
+
+// Restore on Safari bfcache or visibility resume
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted || performance.getEntriesByType('navigation')[0]?.type === "back_forward") {
+    reinitializeIfNeeded();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    reinitializeIfNeeded();
+  }
+});
