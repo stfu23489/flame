@@ -555,15 +555,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         offset += aesCiphertext.length;
         // console.log(`[encrypt] final offset: ${offset}`); // REMOVED
         
-        // 5. create downloadable blob
+        // 5. create downloadable blob (show text link instead of auto-download)
         const blob = new Blob([combined]);
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = file.name + ".flame";
-        a.click();
+        const url = URL.createObjectURL(blob);
         
-        showAlert(`encryption complete. file saved as '${a.download}'`);
-
+        downloadLink.href = url;
+        downloadLink.download = file.name + ".flame";
+        downloadLink.textContent = `download: ${file.name}.flame`;
+        downloadLink.classList.remove('hidden');
+        
+        showAlert(`encryption complete. file ready to download as '${downloadLink.download}'`);
     } catch (e) {
         showAlert("file encryption failed: " + (e?.message || e), true);
     } finally {
