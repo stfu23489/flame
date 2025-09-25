@@ -18,16 +18,25 @@
     <h1 class="text-4xl font-extrabold text-center pt-10 pb-6 text-text-secondary">
       FLAME
     </h1>
-    <p class="text-center text-sm font-light text-text-accent mb-8">
-      Falcon-512, AES-256, MLKeM-768
+    <p class="text-center text-xs font-thin text-gray-400">
+      a browser-based post-quantum encryption multi-tool, featuring: 
     </p>
-
+    <p class="text-center text-sm font-light text-text-accent mb-8">
+      Falcon-512, AES-256, and MLKEM-768
+    </p>
+    
     <!-- Tabs -->
     <div class="border-b border-dark">
-      <nav class="flex -mb-0.5" id="tabsNav">
-        <button class="tab-btn active" data-tab="keys">key management</button>
-        <button class="tab-btn" data-tab="crypt">text messaging</button>
-        <button class="tab-btn" data-tab="files">file transfer</button>
+      <nav class="flex justify-evenly -mb-0.5" id="tabsNav">
+        <button class="tab-btn active flex-1 text-center" data-tab="keys">
+          key management
+        </button>
+        <button class="tab-btn flex-1 text-center" data-tab="crypt">
+          text messaging
+        </button>
+        <button class="tab-btn flex-1 text-center" data-tab="files">
+          file transfer
+        </button>
       </nav>
     </div>
 
@@ -47,34 +56,14 @@
             class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
           ></textarea>
         </div>
-
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            your private & public keys
-          </label>
-          <textarea
-            id="importExportKeys"
-            rows="1"
-            placeholder="paste keys here to import or click export"
-            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
-          ></textarea>
-        </div>
         
-        <div class="flex space-x-4">
-          <button
-            id="importKeysBtn"
-            class="btn-indigo flex-1 font-semibold py-3 transition"
-          >
-            import keys
-          </button>
-          <button
-            id="exportKeysBtn"
-            class="btn-indigo flex-1 font-semibold py-3 transition"
-          >
-            export keys
-          </button>
-        </div>
-
+        <button
+          id="genKeysBtn"
+          class="w-full btn-indigo font-semibold py-4 transition"
+        >
+          generate new keys
+        </button>
+        
         <div class="space-y-2">
           <label class="block text-sm font-semibold text-text-secondary">
             your public key
@@ -101,12 +90,32 @@
           ></textarea>
         </div>
         
-        <button
-          id="genKeysBtn"
-          class="w-full btn-indigo font-semibold py-4 transition"
-        >
-          generate new keys
-        </button>
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-text-secondary">
+            your private & public keys
+          </label>
+          <textarea
+            id="importExportKeys"
+            rows="1"
+            placeholder="paste keys here to import or click export"
+            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
+          ></textarea>
+        </div>
+        
+        <div class="flex space-x-4">
+          <button
+            id="importKeysBtn"
+            class="btn-indigo flex-1 font-semibold py-3 transition"
+          >
+            import keys
+          </button>
+          <button
+            id="exportKeysBtn"
+            class="btn-indigo flex-1 font-semibold py-3 transition"
+          >
+            export keys
+          </button>
+        </div>
       </section>
 
       <!-- Encrypt / Decrypt -->
@@ -217,7 +226,7 @@
 
   <!-- Footer -->
   <div class="text-sm text-center text-gray-500 mt-4 font-mono">
-    version 3.0.1
+    version 3.0.2
   </div>
   <a
     href="https://github.com/stfu23489/flame"
