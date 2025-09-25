@@ -102,6 +102,12 @@ button {
   border-bottom-color: var(--text-secondary);
 }
 
+/* Remove outline/focus effect for tab buttons */
+.tab-btn:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 textarea::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -128,9 +134,10 @@ input:focus {
   background-color: var(--bg-dark);
 }
 
+/* REMOVED: button:focus { outline: none; box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.4); } */
 button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.4);
+  box-shadow: none; /* Explicitly remove any default focus shadow */
 }
 
 pre#verifyResult {
