@@ -25,11 +25,8 @@ h1, h2 {
   font-weight: 800;
 }
 
-textarea,
-input,
-button {
-  font-family: 'IBM Plex Mono', monospace;
-  transition: all 0.2s ease-in-out;
+textarea {
+  resize: none !important;
 }
 
 .bg-dark {
@@ -124,6 +121,8 @@ button {
   background-color: var(--bg-light);
   border: 1px solid var(--border-color);
   color: var(--text-main);
+  font-family: 'IBM Plex Mono', monospace;
+  transition: all 0.2s ease-in-out;
 }
 
 textarea:focus,
