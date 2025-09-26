@@ -16,9 +16,24 @@
 }
 
 body {
-  background: #121212;
+  background-color: #121212;          /* your dark base */
   color: var(--text-main);
   font-family: 'Inter', sans-serif;
+  position: relative;                 /* needed for ::before layering */
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-color: rgba(255,0,0,0.05); /* shadow color */
+  -webkit-mask-image: url("sized.ico");
+  -webkit-mask-repeat: repeat;
+  mask-image: url("sized.ico");
+  mask-repeat: repeat;
+  pointer-events: none;
+  z-index: -1;
 }
 
 h1, h2 {
@@ -186,4 +201,11 @@ pre#verifyResult {
 @keyframes progress-countdown {
   from { width: 100%; }
   to { width: 0; }
+}
+
+input, textarea, select, button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 0;
 }
