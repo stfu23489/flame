@@ -57,13 +57,6 @@
           ></textarea>
         </div>
         
-        <button
-          id="genKeysBtn"
-          class="w-full btn-indigo font-semibold py-4 transition"
-        >
-          generate new keys
-        </button>
-        
         <div class="space-y-2">
           <label class="block text-sm font-semibold text-text-secondary">
             your public key
@@ -73,19 +66,6 @@
             rows="1"
             readonly
             placeholder="public key"
-            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
-          ></textarea>
-        </div>
-
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            your private key
-          </label>
-          <textarea
-            id="yourPrivateKey"
-            rows="1"
-            readonly
-            placeholder="private key"
             class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
           ></textarea>
         </div>
@@ -116,6 +96,13 @@
             export keys
           </button>
         </div>
+        
+        <button
+          id="genKeysBtn"
+          class="w-full btn-indigo font-semibold py-4 transition"
+        >
+          generate new keys
+        </button>
       </section>
 
       <!-- Encrypt / Decrypt -->
