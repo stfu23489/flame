@@ -27,11 +27,11 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-color: rgba(255,0,0,0.05); /* shadow color */
-  -webkit-mask-image: url("sized.png");
+  background-color: rgba(255,0,0,0.05);
+  -webkit-mask-image: url("sized.png");   /* PNG or SVG */
   -webkit-mask-repeat: repeat;
-  mask-image: url("sized.png");
-  mask-repeat: repeat;
+  -webkit-mask-position: 0 0;
+  -webkit-mask-size: 48px 48px;           /* required on iOS */
   pointer-events: none;
   z-index: -1;
 }
