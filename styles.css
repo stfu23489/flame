@@ -28,9 +28,9 @@ body::before {
   position: fixed;
   inset: 0;
   background-color: rgba(255,0,0,0.05); /* shadow color */
-  -webkit-mask-image: url("sized.ico");
+  -webkit-mask-image: url("sized.png");
   -webkit-mask-repeat: repeat;
-  mask-image: url("sized.ico");
+  mask-image: url("sized.png");
   mask-repeat: repeat;
   pointer-events: none;
   z-index: -1;
