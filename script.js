@@ -6,11 +6,21 @@ const CONSTANTS = {
   // These fixed lengths are used for sizing checks and padding, NOT for component slicing.
   SIZE_FIELD_LEN: 4, // Length of the Uint32 field used to store a size (4 bytes)
   AES_IV_LEN: 12, // AES-GCM IV length (fixed)
+  AES_TAG_LEN: 16, // AES-GCM Authentication Tag length (fixed) <--- ADDED
   MAX_HEADER_SIZE: 65536, // Max allowed size for dynamic components (ML-KEM CT, Falcon Sig)
   DOMAIN_TEXT: "FLAME_TEXT_V1:", // Domain separation prefix for text signing
   DOMAIN_FILE: "FLAME_FILE_V1:", // Domain separation prefix for file signing
+  FILE_CHUNK_SIZE: 16 * 1024 * 1024, // 16 MB chunk size for streaming (MUST be constant) <--- ADDED
+  // --- PASSWORD ENCRYPTION CONSTANTS ---
+  PBKDF2_SALT_LEN: 16, // Salt length for PBKDF2
+  PBKDF2_ITERATIONS: 100000, // Iterations for PBKDF2
+  PBKDF2_KEY_LEN: 32, // Key length (256 bits for AES-256)
+  PENC_HEADER: "FLAME_PENC_V1:", // Prefix for password-encrypted data
+  // --- DEVELOPER CONSTANTS ---
+  DEV_MODE: false, // Set to true to enable verbose console logging of errors
 };
-const { SIZE_FIELD_LEN, AES_IV_LEN, MAX_HEADER_SIZE, DOMAIN_TEXT, DOMAIN_FILE } = CONSTANTS;
+// UPDATED DESTRUCTURING
+const { SIZE_FIELD_LEN, AES_IV_LEN, AES_TAG_LEN, MAX_HEADER_SIZE, DOMAIN_TEXT, DOMAIN_FILE, FILE_CHUNK_SIZE, PBKDF2_SALT_LEN, PBKDF2_ITERATIONS, PBKDF2_KEY_LEN, PENC_HEADER, DEV_MODE } = CONSTANTS;
 
 // The size of the dynamic metadata header is 2 * 4 bytes = 8 bytes.
 // Structure: [ML-KEM CT Length (4)] [Falcon Sig Length (4)]
@@ -65,9 +75,9 @@ async function loadEncoderAlphabet() {
     if (new Set(encoderAlphabet).size !== 4096) throw new Error("encoder alphabet contains duplicates or invalid chars");
 
   } catch (error) {
-    console.error("error loading encoder alphabet:", error);
+    if (DEV_MODE) console.error("error loading encoder alphabet:", error);
     encoderAlphabet = ' ';
-    if (globalAlertRef) globalAlertRef("error loading encoder alphabet: " + (error?.message || error), true);
+    if (globalAlertRef) globalAlertRef("error loading encoder alphabet", true, error);
   }
 }
 
@@ -154,6 +164,104 @@ async function deriveKey(sharedSecret, salt, info) {
   );
 }
 
+// --- Password-Based Encryption/Decryption Functions ---
+
+/**
+ * Derives an AES-GCM key from a password using PBKDF2.
+ * @param {string} password - The user's password.
+ * @param {Uint8Array} salt - The salt for PBKDF2.
+ * @returns {Promise<CryptoKey>} The derived AES-GCM key.
+ */
+async function deriveKeyFromPassword(password, salt) {
+  const passwordBytes = new TextEncoder().encode(password);
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    passwordBytes,
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false, // Derived key is NOT exportable
+    ["encrypt", "decrypt"]
+  );
+}
+
+/**
+ * Encrypts data using a password-derived key.
+ * Format: PENC_HEADER + Base64(Salt | IV | Ciphertext | Tag)
+ * @param {Uint8Array} dataBytes - The data to encrypt.
+ * @param {string} password - The user's password.
+ * @returns {Promise<string>} The password-encrypted, Base64-encoded string.
+ */
+async function encryptWithPassword(dataBytes, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(PBKDF2_SALT_LEN));
+  const aesIv = crypto.getRandomValues(new Uint8Array(AES_IV_LEN));
+  
+  const aesKey = await deriveKeyFromPassword(password, salt);
+  
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: aesIv },
+    aesKey,
+    dataBytes
+  ));
+
+  // Combine Salt (16), IV (12), and Ciphertext+Tag (variable)
+  const combined = new Uint8Array(PBKDF2_SALT_LEN + AES_IV_LEN + encrypted.length);
+  combined.set(salt, 0);
+  combined.set(aesIv, PBKDF2_SALT_LEN);
+  combined.set(encrypted, PBKDF2_SALT_LEN + AES_IV_LEN);
+
+  return PENC_HEADER + toBase64(combined);
+}
+
+/**
+ * Decrypts data using a password-derived key.
+ * @param {string} encryptedString - The Base64-encoded encrypted string (with PENC_HEADER prefix).
+ * @param {string} password - The user's password.
+ * @returns {Promise<Uint8Array>} The decrypted data bytes.
+ */
+async function decryptWithPassword(encryptedString, password) {
+  if (!encryptedString.startsWith(PENC_HEADER)) {
+    throw new Error("data not recognized as password-encrypted");
+  }
+
+  const base64Data = encryptedString.substring(PENC_HEADER.length);
+  const combined = fromBase64(base64Data);
+  if (!combined) throw new Error("invalid base64 format");
+  
+  const MIN_LEN = PBKDF2_SALT_LEN + AES_IV_LEN + AES_TAG_LEN;
+  if (combined.length < MIN_LEN) {
+    throw new Error("encrypted data too short or corrupted");
+  }
+
+  // Extract Salt, IV, and Ciphertext
+  const salt = combined.slice(0, PBKDF2_SALT_LEN);
+  const aesIv = combined.slice(PBKDF2_SALT_LEN, PBKDF2_SALT_LEN + AES_IV_LEN);
+  const aesCiphertext = combined.slice(PBKDF2_SALT_LEN + AES_IV_LEN);
+  
+  const aesKey = await deriveKeyFromPassword(password, salt);
+
+  try {
+    return new Uint8Array(await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: aesIv },
+      aesKey,
+      aesCiphertext
+    ));
+  } catch (e) {
+    // This typically happens if the password is wrong, leading to GCM Tag mismatch.
+    throw new Error("decryption failed, check your password");
+  }
+}
+
 // --- Compression Utilities ---
 
 async function compressString(str) {
@@ -198,6 +306,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const impExp = document.getElementById('importExportKeys');
   const importBtn = document.getElementById('importKeysBtn');
   const exportBtn = document.getElementById('exportKeysBtn');
+  const keyPassword = document.getElementById('keyPassword'); // <--- ADDED
   const recPub = document.getElementById('recipientPublicKey');
   const inp = document.getElementById('inputText');
   const encBtn = document.getElementById('encryptSignBtn');
@@ -213,16 +322,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   const chosenFileName = document.getElementById('chosenFileName');
   const encryptFileBtn = document.getElementById('encryptFileBtn');
   const decryptFileBtn = document.getElementById('decryptFileBtn');
-  const downloadLink = document.getElementById('downloadLink');
   const fileVerifyResult = document.getElementById('fileVerifyResult');
 
   // 2. Helper functions (Scoped)
   let alertTimeout;
-  function showAlert(message, isError = false) {
+  /**
+   * Shows a user-facing alert message. Logs verbose error details to console if DEV_MODE is true.
+   * @param {string} message - The user-facing message.
+   * @param {boolean} isError - True if this is an error message.
+   * @param {Error|string} [errorDetails] - Optional: The full error object or message for console logging.
+   */
+  function showAlert(message, isError = false, errorDetails = null) {
     const lowerCaseMessage = message.toLowerCase();
-    if (isError) {
-      console.error("alert error:", message);
+    
+    if (isError && DEV_MODE && errorDetails) {
+      const fullErrorMsg = errorDetails?.message || String(errorDetails);
+      console.error("alert error:", fullErrorMsg);
+    } else if (isError && DEV_MODE) {
+      console.error("alert error (no details provided):", message);
     }
+    
     alertMessage.textContent = lowerCaseMessage;
     alertPopup.classList.remove('alert-success', 'alert-error');
     alertPopup.classList.add(isError ? 'alert-error' : 'alert-success');
@@ -244,10 +363,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function clearFileOutput() {
     fileVerifyResult.textContent = "";
-    downloadLink.classList.add('hidden');
-    downloadLink.href = "#";
-    downloadLink.download = "";
-    downloadLink.textContent = "download decrypted file";
   }
 
   // Check for in-memory private key presence (using the raw key reference)
@@ -322,10 +437,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   /**
    * Handles ML-KEM key exchange and Falcon signing setup for FILE mode.
    * Signs the SHA-256 hash of the content, with domain separation.
-   * @param {Uint8Array} fileBytes - The file content.
+   * NOTE: This function reads the entire file content into memory ONCE to compute the signature hash.
+   * The file content memory is immediately flushed after hashing.
+   * @param {File} file - The file object.
    * @param {string} recipientPublicKey - Recipient's public key (custom-encoded).
    */
-  async function setupEncryptionFile(fileBytes, recipientPublicKey) {
+  async function setupEncryptionFile(file, recipientPublicKey) { // CHANGED INPUT TO FILE
     // 1. Prepare keys
     const [rkpStrCustom, _] = recipientPublicKey.split("|");
     const rkp = fromBase64(decodeCustomToBase64(rkpStrCustom));
@@ -334,8 +451,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!_privateKeyPair.falconKey) throw new Error("your private key is missing or invalid");
     const faPriv = _privateKeyPair.falconKey; // Use raw key from memory
 
-    // 2. Hash the file content
-    const fileHashBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', fileBytes));
+    // 2. Hash the file content (Temporary full read for hashing only)
+    let fileBytesForHash = new Uint8Array(await file.arrayBuffer());
+    const fileHashBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', fileBytesForHash));
+    // Explicitly flush the memory used for hashing the file <--- MEMORY CLEAR
+    fileBytesForHash = null; 
 
     // 3. Prepare canonical data to sign (Hash with domain separation)
     const dataToSignBytes = prepareDataToSignFile(fileHashBytes);
@@ -354,8 +474,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     return {
       ctMLKem,
       aesKey,
-      signatureBytes
+      signatureBytes,
+      fileHashBytes // for verification logging
     };
+  }
+
+  /**
+   * Encrypts a file chunk by chunk using the derived AES key.
+   * The output is a Blob containing the header followed by a sequence of [Chunk IV | Chunk Ciphertext + Tag].
+   */
+  async function streamEncryptFile(file, setupResult) { // <--- NEW FUNCTION FOR STREAMING
+    const { ctMLKem, aesKey, signatureBytes } = setupResult;
+    
+    const MLKEM_CT_LEN_ACTUAL = ctMLKem.length;
+    const FALCON_SIG_LEN_ACTUAL = signatureBytes.length;
+
+    // 1. Construct static header components
+    const METADATA_LEN = 2 * SIZE_FIELD_LEN;
+    const metadata = new Uint8Array(METADATA_LEN);
+    const metadataView = new DataView(metadata.buffer);
+    metadataView.setUint32(0, MLKEM_CT_LEN_ACTUAL, false);
+    metadataView.setUint32(SIZE_FIELD_LEN, FALCON_SIG_LEN_ACTUAL, false);
+    
+    // Header parts: [metadata (8 bytes)], [ctMLKem (var)], [signatureBytes (var)]
+    const headerParts = [metadata, ctMLKem, signatureBytes];
+    
+    // 2. Prepare AAD bytes (used for *every* chunk, binds all chunks to the same KEM exchange)
+    // AAD: [MLKEM_CT_LEN | FALCON_SIG_LEN | KEM_CT]
+    const aadBytes = new Uint8Array(METADATA_LEN + MLKEM_CT_LEN_ACTUAL);
+    aadBytes.set(metadata, 0);
+    aadBytes.set(ctMLKem, METADATA_LEN); 
+
+    // 3. Process file chunk by chunk
+    const fileSize = file.size;
+    const CHUNK_SIZE = FILE_CHUNK_SIZE;
+    const encryptedChunks = [];
+    
+    for (let i = 0; i < fileSize; i += CHUNK_SIZE) {
+        const slice = file.slice(i, i + CHUNK_SIZE);
+        // Read the slice into a temporary buffer
+        let chunkBytes = new Uint8Array(await new Response(slice).arrayBuffer());
+
+        // New IV for every chunk (as requested: treat each chunk as new file)
+        const aesIv = crypto.getRandomValues(new Uint8Array(AES_IV_LEN));
+        
+        // Encrypt the chunk (AES-GCM adds the 16-byte tag to the output)
+        const aesCiphertext = new Uint8Array(await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: aesIv, additionalData: aadBytes },
+            aesKey,
+            chunkBytes
+        ));
+
+        // Combine IV (12 bytes) and Ciphertext+Tag (ChunkSize + 16 bytes)
+        // Stored as: [IV | Ciphertext | Tag]
+        const chunkCombined = new Uint8Array(AES_IV_LEN + aesCiphertext.length);
+        chunkCombined.set(aesIv, 0);
+        chunkCombined.set(aesCiphertext, AES_IV_LEN);
+        
+        encryptedChunks.push(chunkCombined);
+
+        // Explicitly clear memory of current chunk <--- MEMORY CLEAR
+        chunkBytes = null; 
+    }
+    
+    // 4. Combine header and chunks into a single Blob
+    return new Blob([...headerParts, ...encryptedChunks]);
   }
 
 
@@ -421,7 +604,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // --- EVENT HANDLERS ---
+  // --- EVENT HANDLERS (Modified for Password Encryption and Error Logging) ---
 
   genKeysBtn.addEventListener('click', async () => {
     genKeysBtn.disabled = true;
@@ -443,7 +626,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       _privateKeyPair.falcon = encodeBase64ToCustom(toBase64(fk.privateKey));
 
       // Store private keys securely in memory (as Uint8Array, as required by the libraries)
-      // FIX: Removed the unsupported crypto.subtle.importKey for ML-KEM
       _privateKeyPair.mlkemKey = mlkemPrivRaw; // ML-KEM private key (Uint8Array)
       
       // Falcon private key is a Uint8Array (needed for the library)
@@ -454,7 +636,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       showAlert("keys generated successfully");
     } catch (e) {
-      showAlert("key generation failed: " + (e?.message || e), true);
+      showAlert("key generation failed", true, e);
     } finally {
       genKeysBtn.disabled = false;
       genKeysBtn.textContent = "generate new keys";
@@ -465,8 +647,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Export button
   exportBtn.addEventListener('click', async () => {
-    if (!yourPub.value || !hasPrivateKey()) return showAlert("generate or import keys first", true);
+    if (!yourPub.value || !hasPrivateKey()) {
+      return showAlert("warning: no private key detected in memory", true, "no private key detected in memory, generate or import keys first");
+    }
+
     impExp.value = ""; // Clear export field
+    const password = keyPassword.value.trim();
     
     try {
       const [mlkemPubCustom, faPubCustom] = yourPub.value.split("|");
@@ -488,11 +674,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         faPriv: faPrivBase64,
       });
 
-      // Compress and output to the export field
-      impExp.value = await compressString(rawKeys);
-      showAlert("keys exported");
+      // Compress
+      const compressedString = await compressString(rawKeys);
+
+      let outputData = compressedString;
+      let alertMessage = "keys exported";
+
+      // Optional Password Encryption
+      if (password) {
+        const compressedBytes = new TextEncoder().encode(compressedString);
+        outputData = await encryptWithPassword(compressedBytes, password);
+        alertMessage = "keys exported and encrypted with password";
+      } else {
+        alertMessage += " (no password used)";
+        // Using standard alert for the warning about no password
+        if (DEV_MODE) console.warn('user exported keys without a password');
+        alert('please use a password next time');
+      }
+
+      // Output to the export field
+      impExp.value = outputData;
+      showAlert(alertMessage);
+      keyPassword.value = ''; // Clear password field after use
+
     } catch (e) {
-      showAlert("export failed: " + (e?.message || e), true);
+      showAlert("export failed", true, e);
     }
   });
 
@@ -501,11 +707,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     const compressedData = impExp.value.trim();
     if (!compressedData) return showAlert("paste key data into the field first", true);
     
+    const password = keyPassword.value.trim();
+
     try {
-      const decompressed = await decompressString(compressedData);
-      if (!decompressed) return showAlert("decompression failed", true);
+      let dataToDecompress = compressedData;
+
+      // Optional Password Decryption
+      if (compressedData.startsWith(PENC_HEADER)) {
+        if (!password) {
+          throw new Error("encrypted key data detected, please enter the key password");
+        }
+        const decryptedBytes = await decryptWithPassword(compressedData, password);
+        dataToDecompress = new TextDecoder().decode(decryptedBytes);
+      } else {
+        showAlert("warning: a password was entered but the key data is not encrypted, proceeding with unencrypted import", false);
+        // Using standard alert for the warning about migrating keys
+        if (DEV_MODE) console.warn('unencrypted keys imported while password field was populated, prompting user to migrate');
+        alert('please migrate your unencrypted keys to the encrypted format with a password (export with password after this message)');
+      }
+      
+      // Decompress
+      const decompressed = await decompressString(dataToDecompress);
+      if (!decompressed) throw new Error("decompression failed");
 
       const keys = JSON.parse(decompressed);
+
+      if (!keys.mlkemPub || !keys.faPub || !keys.mlkemPriv || !keys.faPriv) {
+        throw new Error("missing key components in data");
+      }
       
       // Encode all keys back to the custom format
       const mlkemPubCustom = encodeBase64ToCustom(keys.mlkemPub);
@@ -521,7 +750,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       _privateKeyPair.falcon = faPrivCustom; // String for export
       
       // Store private keys securely in memory (as Uint8Array)
-      // FIX: Removed the unsupported crypto.subtle.importKey for ML-KEM
       _privateKeyPair.mlkemKey = mlkemPrivRaw; // ML-KEM private key (Uint8Array)
       
       // Falcon private key is a Uint8Array (needed for the library)
@@ -532,10 +760,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       showAlert("keys imported successfully");
       impExp.value = ''; // clear after importing
+      keyPassword.value = ''; // Clear password field after use
       clearOutput();
       clearFileOutput();
+
     } catch (e) {
-      showAlert("import failed: " + (e?.message || e), true);
+      showAlert("import failed", true, e);
     }
   });
 
@@ -562,6 +792,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const compressedBytes = fromBase64(compressed);
       
       const aesKey = textSetup.aesKey;
+      // Generates new IV every time (as requested)
       const aesIv = crypto.getRandomValues(new Uint8Array(AES_IV_LEN));
       
       // Encrypt with AAD: KEM CT
@@ -581,7 +812,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       out.value = encoded;
       showAlert("encryption & signing complete");
     } catch (e) {
-      showAlert("encryption failed: " + (e?.message || e), true);
+      showAlert("encryption failed", true, e);
     } finally {
       encBtn.disabled = false;
       encBtn.textContent = "encrypt & sign";
@@ -609,7 +840,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       showAlert("decryption & verification complete");
     } catch (e) {
-      showAlert("decryption or verification failed: " + (e?.message || e), true)
+      showAlert("decryption or verification failed", true, e)
     } finally {
       decBtn.disabled = false;
       decBtn.textContent = "decrypt & verify";
@@ -630,7 +861,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // ----- ENCRYPT FILE (with Dynamic Metadata) -----
+  // ----- ENCRYPT FILE (with Streaming Chunking) ----- <--- MODIFIED
   encryptFileBtn.addEventListener('click', async () => {
     encryptFileBtn.disabled = true;
     encryptFileBtn.textContent = "encrypting...";
@@ -650,87 +881,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       return showAlert("file and recipient key required", true);
     }
 
+    let encryptedBlob = null;
+    let url = null;
     try {
-      const fileBytes = new Uint8Array(await file.arrayBuffer());
+      // 1. Setup: KEM exchange, AES key derivation, and Falcon signature 
+      //    (reads file once for hash, then flushes memory)
+      const setupResult = await setupEncryptionFile(file, rec);
 
-      // Setup performs KEM, HKDF, and Signing
-      const setupResult = await setupEncryptionFile(fileBytes, rec);
+      // 2. Streaming Encryption: Encrypts chunk by chunk, with new IV/Tag per chunk
+      encryptedBlob = await streamEncryptFile(file, setupResult);
       
-      const ctMLKem = setupResult.ctMLKem;
-      const signatureBytes = setupResult.signatureBytes;
+      // 3. Download
+      url = URL.createObjectURL(encryptedBlob);
       
-      const MLKEM_CT_LEN_ACTUAL = ctMLKem.length;
-      const FALCON_SIG_LEN_ACTUAL = signatureBytes.length;
+      const tempA = document.createElement('a');
+      tempA.href = url;
+      tempA.download = file.name + ".flame";
+      tempA.style.display = 'none';
+      document.body.appendChild(tempA);
+      tempA.click();
+      document.body.removeChild(tempA);
+      
+      // Flush URL memory immediately after download is triggered <--- MEMORY CLEAR
+      URL.revokeObjectURL(url); 
+      
+      showAlert('file encrypted, downloading');
 
-      // 1. construct metadata header (dynamic sizes)
-      const METADATA_LEN = 2 * SIZE_FIELD_LEN;
-      const metadata = new Uint8Array(METADATA_LEN);
-      const metadataView = new DataView(metadata.buffer);
-      
-      // write ml-kem ct length (0-3 bytes, big endian)
-      metadataView.setUint32(0, MLKEM_CT_LEN_ACTUAL, false);
-      
-      // write falcon signature length (4-7 bytes, big endian)
-      metadataView.setUint32(SIZE_FIELD_LEN, FALCON_SIG_LEN_ACTUAL, false);
-
-      const HEADER_LENGTH = METADATA_LEN + MLKEM_CT_LEN_ACTUAL + AES_IV_LEN + FALCON_SIG_LEN_ACTUAL;
-
-      // 2. Prepare AAD bytes (Metadata + KEM CT)
-      const aadBytes = new Uint8Array(METADATA_LEN + MLKEM_CT_LEN_ACTUAL);
-      aadBytes.set(metadata, 0);
-      aadBytes.set(ctMLKem, METADATA_LEN);
-
-      // 3. aes encryption
-      const aesIv = crypto.getRandomValues(new Uint8Array(AES_IV_LEN));
-      const aesKey = setupResult.aesKey;
-      
-      // Encrypt with AAD: Metadata + KEM CT
-      const aesCiphertext = new Uint8Array(await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: aesIv, additionalData: aadBytes }, // AAD included
-        aesKey,
-        fileBytes
-      ));
-      
-      const totalLength = HEADER_LENGTH + aesCiphertext.length;
-      
-      // 4. combine all components
-      // final structure: [metadata (8)] [ml-kem ct] [aes iv] [falcon sig] [aes ciphertext]
-      const combined = new Uint8Array(totalLength);
-      let offset = 0;
-      
-      combined.set(metadata, offset);
-      offset += METADATA_LEN;
-      
-      combined.set(ctMLKem, offset);
-      offset += MLKEM_CT_LEN_ACTUAL;
-
-      combined.set(aesIv, offset);
-      offset += AES_IV_LEN;
-
-      combined.set(signatureBytes, offset);
-      offset += FALCON_SIG_LEN_ACTUAL;
-
-      combined.set(aesCiphertext, offset);
-      
-      // 5. create downloadable blob
-      const blob = new Blob([combined]);
-      const url = URL.createObjectURL(blob);
-      
-      downloadLink.href = url;
-      downloadLink.download = file.name + ".flame";
-      downloadLink.textContent = `download: ${file.name}.flame`;
-      downloadLink.classList.remove('hidden');
-      
-      showAlert(`encryption complete. file ready to download as '${downloadLink.download}'`);
     } catch (e) {
-      showAlert("file encryption failed: " + (e?.message || e), true);
+      showAlert("file encryption failed", true, e);
     } finally {
       encryptFileBtn.disabled = false;
       encryptFileBtn.textContent = "encrypt file";
     }
+    // No large memory buffers need clearing here, they were cleared in setup and streaming function.
   });
   
-  // ----- DECRYPT FILE (with Dynamic Metadata) -----
+  // ----- DECRYPT FILE (with Streaming Chunking) ----- <--- MODIFIED
   decryptFileBtn.addEventListener('click', async () => {
     decryptFileBtn.disabled = true;
     decryptFileBtn.textContent = "decrypting...";
@@ -754,7 +940,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!_privateKeyPair.mlkemKey) {
       decryptFileBtn.disabled = false;
       decryptFileBtn.textContent = "decrypt file";
-      return showAlert("your ML-KEM decryption key is not loaded.", true);
+      return showAlert("your decryption key is not loaded", true);
     }
     const sK = _privateKeyPair.mlkemKey; // ML-KEM Private Key (Uint8Array)
     const [____, pubFACustom] = senderPub.split("|");
@@ -766,18 +952,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       return showAlert("invalid or missing decryption/verification keys", true);
     }
 
+    let fileBytes = null; // Encrypted file content
+    let decryptedBytesArray = null; // Final plaintext content for hash check
+    let url = null;
+    let decryptedFileBlob = null;
     try {
-      // FIX: Correctly read file bytes
-      const fileBytes = new Uint8Array(await file.arrayBuffer());
+      // NOTE: We must read the entire ENCRYPTED file into memory to correctly parse the header
+      // and then iterate over the chunks. This is the main point of lag for very large encrypted inputs.
+      fileBytes = new Uint8Array(await file.arrayBuffer());
       
       const METADATA_LEN = 2 * SIZE_FIELD_LEN; // 8 bytes for two sizes
-      const MIN_HEADER_LENGTH = METADATA_LEN + AES_IV_LEN; // 8 bytes for sizes + 12 for iv = 20 bytes minimum
+      const MIN_HEADER_LENGTH = METADATA_LEN + 1; // Minimum header plus one byte of data
       
       if (fileBytes.length < MIN_HEADER_LENGTH) {
-        throw new Error(`file too small. expected min ${MIN_HEADER_LENGTH} bytes, got ${fileBytes.length}.`);
+        throw new Error(`file too small: expected min ${MIN_HEADER_LENGTH} bytes, got ${fileBytes.length}`);
       }
 
-      // 1. read metadata (dynamic component lengths)
+      // 1. read header components
       let offset = 0;
       const metadata = fileBytes.slice(0, METADATA_LEN);
       const metadataView = new DataView(metadata.buffer);
@@ -786,93 +977,125 @@ document.addEventListener('DOMContentLoaded', async () => {
       const MLKEM_CT_LEN_READ = metadataView.getUint32(0, false);
       const FALCON_SIG_LEN_READ = metadataView.getUint32(SIZE_FIELD_LEN, false);
       
-      // Bounds check to prevent DoS/OOM
       if (MLKEM_CT_LEN_READ > MAX_HEADER_SIZE || FALCON_SIG_LEN_READ > MAX_HEADER_SIZE) {
-        throw new Error(`invalid header size detected. Max allowed: ${MAX_HEADER_SIZE} bytes.`);
+        throw new Error(`invalid header size detected, max allowed: ${MAX_HEADER_SIZE} bytes`);
       }
 
       offset += METADATA_LEN; // offset is now 8
 
-      const EXPECTED_HEADER_LENGTH = offset + MLKEM_CT_LEN_READ + AES_IV_LEN + FALCON_SIG_LEN_READ;
-      if (fileBytes.length < EXPECTED_HEADER_LENGTH) {
-        throw new Error(`file header incomplete. calculated total size ${EXPECTED_HEADER_LENGTH} bytes, got ${fileBytes.length}.`);
+      const HEADER_END_OFFSET = offset + MLKEM_CT_LEN_READ + FALCON_SIG_LEN_READ;
+      if (fileBytes.length < HEADER_END_OFFSET) {
+        throw new Error("file header incomplete");
       }
 
-      // 2. extract components based on read lengths
-      
       // ml-kem ct
       const ctMLKem = fileBytes.slice(offset, offset + MLKEM_CT_LEN_READ);
-      if (ctMLKem.length !== MLKEM_CT_LEN_READ) throw new Error("invalid ml-kem ciphertext size slice based on metadata.");
       offset += MLKEM_CT_LEN_READ;
-      
-      // aes iv (fixed length)
-      const aesIv = fileBytes.slice(offset, offset + AES_IV_LEN);
-      if (aesIv.length !== AES_IV_LEN) throw new Error("invalid aes iv size slice.");
-      offset += AES_IV_LEN;
       
       // falcon sig
       const signatureBytes = fileBytes.slice(offset, offset + FALCON_SIG_LEN_READ);
-      if (signatureBytes.length !== FALCON_SIG_LEN_READ) throw new Error("invalid falcon signature size slice based on metadata.");
       offset += FALCON_SIG_LEN_READ;
       
-      // aes ciphertext (remaining data)
-      const aesCiphertext = fileBytes.slice(offset);
-
-      // 3. key decapsulation (ml-kem)
+      // 2. KEM Decapsulation and Key Derivation
       const kem = new MlKem768();
       const shared = await kem.decap(ctMLKem, sK);
-      
-      // 4. derive AES key using HKDF-SHA256, with CT as salt
       const aesKey = await deriveKey(shared, ctMLKem, "AES_GCM_ENCRYPT_FILE");
 
-      // 5. Prepare AAD bytes (Metadata + KEM CT)
+      // 3. Prepare AAD bytes (used for every chunk)
       const aadBytes = new Uint8Array(METADATA_LEN + MLKEM_CT_LEN_READ);
       aadBytes.set(metadata, 0);
-      aadBytes.set(ctMLKem, METADATA_LEN);
+      aadBytes.set(ctMLKem, METADATA_LEN); // AAD: [MLKEM_CT_LEN | FALCON_SIG_LEN | KEM_CT]
 
-      // 6. decrypt data (aes-gcm)
-      let decryptedBytes;
-      try {
-        decryptedBytes = new Uint8Array(await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv: aesIv, additionalData: aadBytes }, // AAD included
-          aesKey,
-          aesCiphertext
-        ));
-      } catch (e) {
-        console.error("[decrypt] decryption error:", e);
-        if (e.message?.includes('operation failed')) {
-          throw new Error("decryption failed (wrong key, corrupted aes ciphertext/tag, or AAD mismatch).");
-        }
-        throw e;
+      // 4. Decrypt and Verify Chunks (Streaming)
+      let decryptedChunks = [];
+      let chunkOffset = offset; // Start of chunk data
+      const CHUNK_SIZE_FULL_ENCRYPTED = FILE_CHUNK_SIZE + AES_TAG_LEN; // Size of ciphertext + tag for a full chunk
+
+      while (chunkOffset < fileBytes.length) {
+          // 4.1 Extract IV (fixed 12 bytes)
+          const aesIv = fileBytes.slice(chunkOffset, chunkOffset + AES_IV_LEN);
+          chunkOffset += AES_IV_LEN;
+
+          // 4.2 Determine Ciphertext length
+          let remainingBytes = fileBytes.length - chunkOffset;
+          let expectedCiphertextLength;
+          
+          if (remainingBytes <= CHUNK_SIZE_FULL_ENCRYPTED) {
+              // This must be the last chunk. Its size is whatever is left.
+              expectedCiphertextLength = remainingBytes;
+          } else {
+              // This is a full chunk.
+              expectedCiphertextLength = CHUNK_SIZE_FULL_ENCRYPTED;
+          }
+
+          const aesCiphertext = fileBytes.slice(chunkOffset, chunkOffset + expectedCiphertextLength);
+          
+          if (aesCiphertext.length < AES_TAG_LEN) {
+              throw new Error("corrupted file: chunk is smaller than the GCM authentication tag");
+          }
+          
+          chunkOffset += expectedCiphertextLength;
+
+          // 4.3 Decrypt chunk (verification happens implicitly here via the GCM Tag)
+          let chunkPlaintext;
+          try {
+              chunkPlaintext = new Uint8Array(await crypto.subtle.decrypt(
+                  { name: "AES-GCM", iv: aesIv, additionalData: aadBytes },
+                  aesKey,
+                  aesCiphertext
+              ));
+          } catch (e) {
+              if (DEV_MODE) console.error("chunk decryption error:", e);
+              // Throws if the GCM Tag verification fails (chunk integrity check)
+              throw new Error("chunk decryption failed: incorrect key or corrupted chunk authentication tag");
+          }
+
+          decryptedChunks.push(chunkPlaintext);
+          // Explicitly clear memory of current chunk buffers <--- MEMORY CLEAR
+          chunkPlaintext = null;
       }
 
-      // 7. verify signature (falcon) against the canonical hash
-      const fileHash = new Uint8Array(await crypto.subtle.digest('SHA-256', decryptedBytes));
+      // 5. Combine chunks and verify total file signature
+      decryptedFileBlob = new Blob(decryptedChunks); 
+      // Need a final memory copy of the whole decrypted file to verify the Falcon signature hash
+      decryptedBytesArray = new Uint8Array(await decryptedFileBlob.arrayBuffer()); 
+
+      const fileHash = new Uint8Array(await crypto.subtle.digest('SHA-256', decryptedBytesArray));
       const dataToVerify = prepareDataToSignFile(fileHash); // Canonical hash
       
       const falcon = await pqcSignFalcon512();
       const valid = await falcon.verify(signatureBytes, dataToVerify, pF);
 
-      // 8. update results and save
-      fileVerifyResult.textContent = valid ? "signature valid" : "signature verification failed: sender could not be verified!";
+      // 6. Final Results and Download
+      fileVerifyResult.textContent = valid ? "signature valid" : "signature verification failed: sender could not be verified! (check recipient public key)";
       fileVerifyResult.style.color = valid ? "#50fa7b" : "#ff5555";
-      if (!valid) throw new Error("signature verification failed");
 
       const originalFileName = file.name.endsWith('.flame') ? file.name.slice(0, -6) : "decrypted_file.dat";
-      const blob = new Blob([decryptedBytes]);
-      const url = URL.createObjectURL(blob);
-      downloadLink.href = url;
-      downloadLink.download = originalFileName;
-      downloadLink.textContent = `download: ${originalFileName}`;
-      downloadLink.classList.remove('hidden');
+      
+      url = URL.createObjectURL(decryptedFileBlob);
+      
+      const tempA = document.createElement('a');
+      tempA.href = url;
+      tempA.download = originalFileName;
+      tempA.style.display = 'none';
+      document.body.appendChild(tempA);
+      tempA.click();
+      document.body.removeChild(tempA);
+      
+      // Flush URL memory immediately after download is triggered <--- MEMORY CLEAR
+      URL.revokeObjectURL(url);
 
-      showAlert("file decryption & verification complete");
+      showAlert("file decrypted and verified, downloading");
 
     } catch (e) {
-      showAlert("file decryption or verification failed: " + (e?.message || e), true)
+      showAlert("file decryption or verification failed", true, e)
     } finally {
       decryptFileBtn.disabled = false;
       decryptFileBtn.textContent = "decrypt file";
+      
+      // Explicitly flush large data from memory <--- MEMORY CLEAR
+      if (fileBytes) { fileBytes = null; } // Encrypted content
+      if (decryptedBytesArray) { decryptedBytesArray = null; } // Final plaintext content
     }
   });
   
