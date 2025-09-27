@@ -19,7 +19,7 @@ const CONSTANTS = {
   PBKDF2_KEY_LEN: 32, // Key length (256 bits for AES-256)
   PENC_HEADER: "FLAME_PENC_V1:", // Prefix for password-encrypted data
   // --- DEVELOPER CONSTANTS ---
-  DEV_MODE: true, // Set to true to enable verbose console logging of errors
+  DEV_MODE: false, // Set to true to enable verbose console logging of errors
 };
 // UPDATED DESTRUCTURING
 const { SIZE_FIELD_LEN, AES_IV_LEN, AES_TAG_LEN, MAX_HEADER_SIZE, DOMAIN_TEXT, DOMAIN_FILE, FILE_CHUNK_SIZE, PBKDF2_SALT_LEN, PBKDF2_ITERATIONS, PBKDF2_KEY_LEN, PENC_HEADER, DEV_MODE } = CONSTANTS;
@@ -798,9 +798,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         outputData = await compressString(rawKeys);
         showAlert("private keys exported (compressed, NO password protection)");
       }
-  
+      
+      keyPassword.value = '';
       impExp.value = outputData;
-  
     } catch (e) {
       showAlert("export failed", true, e);
     }
@@ -850,12 +850,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
   
       showAlert("keys imported successfully");
+      keyPassword.value = '';
       impExp.value = '';
       clearOutput();
       clearFileOutput();
   
     } catch (e) {
-      showAlert("import failed", true, e);
+      showAlert("import failed (check the password)", true, e);
     }
   });
 
