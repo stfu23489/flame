@@ -14,18 +14,20 @@
   />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="min-h-screen flex flex-col items-center py-12 px-4">
+<body class="min-h-screen flex flex-col items-center px-4">
+  <!-- Header -->
+  <h1 class="text-4xl font-extrabold text-center pt-10 pb-6 text-text-secondary">
+    FLAME
+  </h1>
+  <p class="text-center text-xs font-thin text-gray-400">
+    a browser-based post-quantum encryption multi-tool, featuring: 
+  </p>
+  <p class="text-center text-sm font-light text-text-accent mb-8">
+    Falcon-512, AES-256, and MLKEM-768
+  </p>
+  
+  <!-- Main -->
   <div class="w-full max-w-4xl bg-dark shadow-2xl border border-dark">
-    <h1 class="text-4xl font-extrabold text-center pt-10 pb-6 text-text-secondary">
-      FLAME
-    </h1>
-    <p class="text-center text-xs font-thin text-gray-400">
-      a browser-based post-quantum encryption multi-tool, featuring: 
-    </p>
-    <p class="text-center text-sm font-light text-text-accent mb-8">
-      Falcon-512, AES-256, and MLKEM-768
-    </p>
-    
     <!-- Tabs -->
     <div class="border-b border-dark">
       <nav class="flex justify-evenly -mb-0.5" id="tabsNav">
@@ -220,7 +222,7 @@
 
   <!-- Footer -->
   <div class="text-sm text-center text-gray-500 mt-4 font-mono">
-    version 3P.1.0
+    version 3P.1.1
   </div>
   <a
     href="https://github.com/stfu23489/flame"
