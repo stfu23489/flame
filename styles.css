@@ -31,16 +31,6 @@ body::after {
   --btn-green-hover: #44c868;
 }
 
-body {
-  background-color: #121212;
-  color: var(--text-main);
-  font-family: 'Inter', sans-serif;
-  position: relative;
-  overflow-x: hidden;
-  margin: 0;
-  height: 100vh;
-}
-
 /* First grid row */
 body::before {
   -webkit-mask-position: 0 0;
@@ -51,8 +41,45 @@ body::after {
   -webkit-mask-position: 24px 24px; /* half of 48px to stagger */
 }
 
+body {
+  background-color: #121212;
+  color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+  position: relative;
+  overflow-x: hidden;
+  margin: 0;
+  height: 100vh;
+}
+
 textarea {
   resize: none !important;
+}
+
+/* --- Unified background styling --- */
+textarea,
+input,
+select,
+button {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  font-family: 'IBM Plex Mono', monospace;
+  transition: all 0.2s ease-in-out;
+  border-radius: 5px;
+}
+
+textarea:focus,
+input:focus {
+  outline: none;
+  border-color: var(--text-secondary);
+  box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.3);
+  background-color: var(--bg-dark);
+}
+
+/* Remove all focus glow for buttons */
+button:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .bg-dark {
@@ -116,14 +143,6 @@ textarea {
   transition: color 0.15s, border-color 0.15s;
 }
 
-.tab-btn.first {
-  border-left: var(--bg-dark);
-}
-
-.tab-btn.last {
-  border-right: var(--bg-dark);
-}
-
 .tab-btn:hover {
   color: var(--text-main);
 }
@@ -133,10 +152,17 @@ textarea {
   border-bottom-color: var(--bg-dark);
 }
 
-/* Remove outline/focus effect for tab buttons */
 .tab-btn:focus {
   outline: none;
   box-shadow: none;
+}
+
+.tab-btn.first {
+  border-left: var(--bg-dark);
+}
+
+.tab-btn.last {
+  border-right: var(--bg-dark);
 }
 
 textarea::-webkit-scrollbar {
@@ -149,32 +175,8 @@ textarea::-webkit-scrollbar-thumb {
   border-radius: 4px;
 }
 
-textarea,
-input,
-button {
-  background-color: var(--bg-light);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-  font-family: 'IBM Plex Mono', monospace;
-  transition: all 0.2s ease-in-out;
-}
-
-textarea:focus,
-input:focus {
-  outline: none;
-  border-color: var(--text-secondary);
-  box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.3);
-  background-color: var(--bg-dark);
-}
-
-/* REMOVED: button:focus { outline: none; box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.4); } */
-button:focus {
-  outline: none;
-  box-shadow: none; /* Explicitly remove any default focus shadow */
-}
-
 pre#verifyResult {
-  background-color: var(--bg-dark-light);
+  background-color: var(--bg-light);
   color: var(--accent-main);
 }
 
@@ -220,11 +222,4 @@ pre#verifyResult {
 @keyframes progress-countdown {
   from { width: 100%; }
   to { width: 0; }
-}
-
-input, textarea, select, button {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  border-radius: 5px;
 }
