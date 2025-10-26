@@ -29,13 +29,13 @@
     <!-- Tabs -->
     <div class="border-b border-dark">
       <nav class="flex justify-evenly -mb-0.5" id="tabsNav">
-        <button class="tab-btn active flex-1 text-center" data-tab="keys">
+        <button class="tab-btn active first flex-1 text-center" data-tab="keys">
           key management
         </button>
         <button class="tab-btn flex-1 text-center" data-tab="crypt">
           text messaging
         </button>
-        <button class="tab-btn flex-1 text-center" data-tab="files">
+        <button class="tab-btn last flex-1 text-center" data-tab="files">
           file transfer
         </button>
       </nav>
@@ -108,9 +108,16 @@
 
       <!-- Encrypt / Decrypt -->
       <section id="crypt" class="tab-content hidden space-y-6">
-        <div class="space-y-2">
+        <div class="space-y-2 relative">
           <label class="block text-sm font-semibold text-text-secondary">
             input
+            <button
+              type="button"
+              id="pasteBtn"
+              class="ml-2 text-xs px-2 py-1 btn-indigo"
+            >
+              paste
+            </button>
           </label>
           <textarea
             id="inputText"
@@ -119,7 +126,7 @@
             class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
           ></textarea>
         </div>
-
+      
         <div class="flex space-x-4">
           <button
             id="encryptSignBtn"
@@ -134,10 +141,17 @@
             decrypt
           </button>
         </div>
-
-        <div class="space-y-2">
+      
+        <div class="space-y-2 relative">
           <label class="block text-sm font-semibold text-text-secondary">
             output
+            <button
+              type="button"
+              id="copyBtn"
+              class="ml-2 text-xs px-2 py-1 btn-indigo"
+            >
+              copy
+            </button>
           </label>
           <textarea
             id="outputText"
@@ -147,7 +161,7 @@
             class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
           ></textarea>
         </div>
-
+      
         <div class="space-y-2">
           <label class="block text-sm font-semibold text-text-secondary">
             signature verification result
@@ -206,7 +220,7 @@
 
   <!-- Footer -->
   <div class="text-sm text-center text-gray-500 mt-4 font-mono">
-    version 3P.0.2
+    version 3P.1.0
   </div>
   <a
     href="https://github.com/stfu23489/flame"
