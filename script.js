@@ -19,7 +19,7 @@ const CONSTANTS = {
   PBKDF2_KEY_LEN: 32, // Key length (256 bits for AES-256)
   PENC_HEADER: "FLAME_PENC_V1:", // Prefix for password-encrypted data
   // --- DEVELOPER CONSTANTS ---
-  DEV_MODE: false, // Set to true to enable verbose console logging of errors
+  DEV_MODE: true, // Set to true to enable verbose console logging of errors
 };
 // UPDATED DESTRUCTURING
 const { SIZE_FIELD_LEN, AES_IV_LEN, AES_TAG_LEN, MAX_HEADER_SIZE, DOMAIN_TEXT, DOMAIN_FILE, FILE_CHUNK_SIZE, PBKDF2_SALT_LEN, PBKDF2_ITERATIONS, PBKDF2_KEY_LEN, PENC_HEADER, DEV_MODE } = CONSTANTS;
@@ -667,7 +667,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-
   /**
    * Decrypts and verifies text data (TEXT MODE ONLY)
    * NEW FORMAT: CT_KEM|IV|CT_AES|SIG_FALCON (no compression/JSON)
@@ -731,6 +730,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // --- EVENT HANDLERS ---
+  
+  // COPY & PASTE BUTTONS
+  const copyBtn = document.getElementById('copyBtn');
+  const outputText = document.getElementById('outputText');
+  const pasteBtn = document.getElementById('pasteBtn');
+  const inputText = document.getElementById('inputText');
+  
+  // COPY BUTTON
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(outputText.value);
+      showAlert("copied");
+    } catch (e) {
+      showAlert("failed to copy", true, e);
+    }
+  });
+  
+  // PASTE BUTTON
+  pasteBtn.addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      inputText.value = text;
+    } catch (e) {
+      showAlert("failed to paste", true, e);
+    }
+  });
   
   // GENERATE KEYS BUTTON
   genKeysBtn.addEventListener('click', async () => {
@@ -867,7 +892,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rec = recPub.value.trim();
     
     if (!hasPrivateKey()) return showAlert("generate or import your private key first", true);
-    if (!msg || !rec) return showAlert("message and recipient key required", true);
+    if (!rec) return showAlert("recipient key required", true);
     
     encBtn.disabled = true;
     encBtn.textContent = "encrypting...";
@@ -890,12 +915,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       ));
       
       // 2. Encode to custom format, *including* signature as a separate component
-      const encoded = [
-        encodeBase64ToCustom(toBase64(textSetup.ctMLKem)),
+      const encoded = '---START FLAME ASYM---\n'+
+      [ encodeBase64ToCustom(toBase64(textSetup.ctMLKem)),
         encodeBase64ToCustom(toBase64(aesIv)),
         encodeBase64ToCustom(toBase64(aesCiphertext)),
         encodeBase64ToCustom(toBase64(textSetup.signatureBytes)) // NEW: Signature component
-      ].join("|");
+      ].join("|")
+      +'\n---END FLAME ASYM---';
 
       out.value = encoded;
       showAlert("encryption & signing complete");
@@ -910,17 +936,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Decrypt & Verify (Text)
   decBtn.addEventListener('click', async () => {
     clearOutput();
-    const val = inp.value.trim();
+    const val = inp.value.match(/---START FLAME ASYM---([\s\S]*?)---END FLAME ASYM---/);
+    const msg = val[1].trim();
+    if (!msg) return showAlert("incorrect formatting or cipher does not exist", true);
+    
     const sender = recPub.value.trim();
 
     if (!hasPrivateKey()) return showAlert("generate or import your private key first", true);
-    if (!val || !sender) return showAlert("encrypted input and sender's public key required", true);
+    if (!sender) return showAlert("sender's public key required", true);
 
     decBtn.disabled = true;
     decBtn.textContent = "decrypting...";
 
     try {
-      const result = await decryptVerifyText(val, sender);
+      const result = await decryptVerifyText(msg, sender);
       
       out.value = result.decryptedData;
       res.textContent = result.validSignature ? "valid signature" : "the sender could not be verified! (check the recipient public key)";
