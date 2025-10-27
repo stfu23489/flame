@@ -70,23 +70,37 @@ let _privateKeyPair = {
 async function loadEncoderAlphabet() {
   try {
     const response = await fetch('encoderalphabet.txt');
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      const msg = `HTTP error! status: ${response.status}`;
+      if (globalAlertRef) globalAlertRef("Error loading encoder alphabet", true, msg);
+      throw new Error(msg); // Will be caught by the outer catch
+    }
     encoderAlphabet = await response.text();
-    if (encoderAlphabet.length !== 4096) throw new Error("encoder alphabet size mismatch");
+    if (encoderAlphabet.length !== 4096) {
+      const msg = "Encoder alphabet size mismatch";
+      if (globalAlertRef) globalAlertRef("Error loading encoder alphabet", true, msg);
+      throw new Error(msg); // Will be caught by the outer catch
+    }
     // Basic uniqueness check (full check is better but this is better than nothing)
-    if (new Set(encoderAlphabet).size !== 4096) throw new Error("encoder alphabet contains duplicates or invalid chars");
-
+    if (new Set(encoderAlphabet).size !== 4096) {
+      const msg = "Encoder alphabet contains duplicates or invalid chars";
+      if (globalAlertRef) globalAlertRef("Error loading encoder alphabet", true, msg);
+      throw new Error(msg); // Will be caught by the outer catch
+    }
   } catch (error) {
     if (DEV_MODE) console.error("error loading encoder alphabet:", error);
     encoderAlphabet = ' ';
-    if (globalAlertRef) globalAlertRef("error loading encoder alphabet", true, error);
+    // The main catch block of DOMContentLoaded will handle the error if needed
   }
 }
 
 // --- BASE64/Custom Encoding Functions (Text Mode Only) ---
 
 function encodeBase64ToCustom(base64String) {
-  if (encoderAlphabet.length !== 4096) throw new Error("invalid encoder alphabet loaded");
+  if (encoderAlphabet.length !== 4096) {
+    globalAlertRef("Invalid encoder alphabet loaded", true, "Invalid encoder alphabet loaded");
+    return ""; // Return something to prevent further errors
+  }
 
   const cleanBase64String = base64String.replace(/=+$/, '');
   const mappedResult = [];
@@ -95,13 +109,19 @@ function encodeBase64ToCustom(base64String) {
     if (i + 1 < cleanBase64String.length) {
       const value1 = _standardCharToInt[cleanBase64String[i]];
       const value2 = _standardCharToInt[cleanBase64String[i + 1]];
-      if (value1 === undefined || value2 === undefined) throw new Error("invalid base64 character in input");
+      if (value1 === undefined || value2 === undefined) {
+        globalAlertRef("Invalid Base64 character in input", true, "invalid base64 character in input"); // FIXED: Base64
+        return "";
+      }
       const combined12BitValue = (value1 << 6) | value2;
       mappedResult.push(encoderAlphabet[combined12BitValue]);
     } else {
       // Unmapped single trailing character (should only be A-Z, a-z, 0-9, + , /)
       const char = cleanBase64String[i];
-      if (_standardCharToInt[char] === undefined) throw new Error("invalid base64 trailing character");
+      if (_standardCharToInt[char] === undefined) {
+        globalAlertRef("Invalid Base64 trailing character", true, "invalid base64 trailing character"); // FIXED: Base64
+        return "";
+      }
       mappedResult.push(char);
     }
   }
@@ -109,7 +129,10 @@ function encodeBase64ToCustom(base64String) {
 }
 
 function decodeCustomToBase64(mappedString) {
-  if (encoderAlphabet.length !== 4096) throw new Error("invalid encoder alphabet loaded");
+  if (encoderAlphabet.length !== 4096) {
+    globalAlertRef("Invalid encoder alphabet loaded", true, "invalid encoder alphabet loaded");
+    return "";
+  }
 
   const customCharToInt = {};
   for (let i = 0; i < encoderAlphabet.length; i++) {
@@ -123,7 +146,10 @@ function decodeCustomToBase64(mappedString) {
     if (charValue === undefined) {
       // Should be a trailing single standard Base64 character
       if (_standardCharToInt[char] !== undefined) decoded.push(char);
-      else throw new Error("invalid custom encoded character");
+      else {
+        globalAlertRef("Invalid custom encoded character", true, "invalid custom encoded character");
+        return "";
+      }
       continue;
     }
     const v1 = (charValue >> 6) & 0x3F;
@@ -140,7 +166,7 @@ function decodeCustomToBase64(mappedString) {
 /**
  * Derives a key using HKDF-SHA256 from the ML-KEM shared secret.
  * @param {Uint8Array} sharedSecret - The raw shared secret from KEM.
- * @param {Uint8Array} salt - A non-secret random value (e.g., KEM CT).
+ * @param {Uint8Array} salt - A non-secret random value (e.g., ML-KEM CT).
  * @param {string} info - Application-specific context.
  * @returns {Promise<CryptoKey>} The derived AES-GCM key.
  */
@@ -233,16 +259,21 @@ async function encryptWithPassword(dataBytes, password) {
  */
 async function decryptWithPassword(encryptedString, password) {
   if (!encryptedString.startsWith(PENC_HEADER)) {
-    throw new Error("data not recognized as password-encrypted");
+    globalAlertRef("Data not recognized as password-encrypted", true, "data not recognized as password-encrypted");
+    return;
   }
 
   const base64Data = encryptedString.substring(PENC_HEADER.length);
   const combined = fromBase64(base64Data);
-  if (!combined) throw new Error("invalid base64 format");
+  if (!combined) {
+    globalAlertRef("Invalid Base64 format", true, "invalid base64 format"); // FIXED: Base64
+    return;
+  }
   
   const MIN_LEN = PBKDF2_SALT_LEN + AES_IV_LEN + AES_TAG_LEN;
   if (combined.length < MIN_LEN) {
-    throw new Error("encrypted data too short or corrupted");
+    globalAlertRef("Encrypted data too short or corrupted", true, "encrypted data too short or corrupted");
+    return;
   }
 
   // Extract Salt, IV, and Ciphertext
@@ -260,7 +291,8 @@ async function decryptWithPassword(encryptedString, password) {
     ));
   } catch (e) {
     // This typically happens if the password is wrong, leading to GCM Tag mismatch.
-    throw new Error("decryption failed, check your password");
+    globalAlertRef("Decryption failed, check your password", true, e);
+    return;
   }
 }
 
@@ -283,7 +315,10 @@ async function compressString(str) {
 
 async function decompressString(base64Str) {
   const data = fromBase64(base64Str);
-  if (!data) throw new Error("invalid base64 input for decompression");
+  if (!data) {
+    globalAlertRef("Invalid Base64 input for decompression", true, "invalid base64 input for decompression"); // FIXED: Base64
+    return;
+  }
   const stream = new DecompressionStream('gzip');
   const writer = stream.writable.getWriter();
   writer.write(data);
@@ -324,6 +359,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const encryptFileBtn = document.getElementById('encryptFileBtn');
   const decryptFileBtn = document.getElementById('decryptFileBtn');
   const fileVerifyResult = document.getElementById('fileVerifyResult');
+  const copyBtn = document.getElementById('copyBtn');
+  const outputText = document.getElementById('outputText');
+  const pasteBtn = document.getElementById('pasteBtn');
+  const inputText = document.getElementById('inputText');
 
   // 2. Helper functions (Scoped)
   let alertTimeout;
@@ -334,24 +373,26 @@ document.addEventListener('DOMContentLoaded', async () => {
    * @param {Error|string} [errorDetails] - Optional: The full error object or message for console logging.
    */
   function showAlert(message, isError = false, errorDetails = null) {
-    const lowerCaseMessage = message.toLowerCase();
-    
+    // FIXED: Ensured capitalization is correct for user messages, removing unnecessary cleaning/lowercasing.
+    const userMessage = message.charAt(0).toUpperCase() + message.slice(1); 
+
     if (isError && DEV_MODE && errorDetails) {
       const fullErrorMsg = errorDetails?.message || String(errorDetails);
       console.error("alert error:", fullErrorMsg);
     } else if (isError && DEV_MODE) {
       console.error("alert error (no details provided):", message);
     }
-    
-    alertMessage.textContent = lowerCaseMessage;
+  
+    alertMessage.textContent = userMessage;
     alertPopup.classList.remove('alert-success', 'alert-error');
     alertPopup.classList.add(isError ? 'alert-error' : 'alert-success');
     alertPopup.classList.add('show');
-
-    alertProgressBar.style.animation = 'none';
-    void alertProgressBar.offsetWidth;
-    alertProgressBar.style.animation = null;
-
+  
+    // Restart progress bar
+    alertProgressBar.classList.remove('animate');
+    void alertProgressBar.offsetWidth; // force reflow
+    alertProgressBar.classList.add('animate');
+  
     clearTimeout(alertTimeout);
     alertTimeout = setTimeout(() => alertPopup.classList.remove('show'), 3000);
   }
@@ -409,9 +450,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function setupEncryptionText(dataToSignMsg, recipientPublicKey) {
     const [rkpStrCustom, _] = recipientPublicKey.split("|");
     const rkp = fromBase64(decodeCustomToBase64(rkpStrCustom));
-    if (!rkp) throw new Error("invalid recipient public key");
+    if (!rkp) {
+      showAlert("Invalid recipient public key", true, "invalid recipient public key");
+      return;
+    }
 
-    if (!_privateKeyPair.falconKey) throw new Error("your private key is missing or invalid");
+    if (!_privateKeyPair.falconKey) {
+      showAlert("Your private key is missing or invalid", true, "your private key is missing or invalid");
+      return;
+    }
     const faPriv = _privateKeyPair.falconKey; // Use raw key from memory
 
     // 1. Prepare canonical data to sign
@@ -447,9 +494,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 1. Prepare keys
     const [rkpStrCustom, _] = recipientPublicKey.split("|");
     const rkp = fromBase64(decodeCustomToBase64(rkpStrCustom));
-    if (!rkp) throw new Error("invalid recipient public key");
+    if (!rkp) {
+      showAlert("Invalid recipient public key", true, "invalid recipient public key");
+      return;
+    }
 
-    if (!_privateKeyPair.falconKey) throw new Error("your private key is missing or invalid");
+    if (!_privateKeyPair.falconKey) {
+      showAlert("Your private key is missing or invalid", true, "your private key is missing or invalid");
+      return;
+    }
     const faPriv = _privateKeyPair.falconKey; // Use raw key from memory
 
     // 2. Hash the file content (Temporary full read for hashing only)
@@ -547,19 +600,22 @@ document.addEventListener('DOMContentLoaded', async () => {
    * @param {File} file - The file object containing encrypted data.
    * @param {string} yourPrivateKey - Your ML-KEM private key (custom-encoded string) (UNUSED, uses in-memory).
    * @param {string} senderPublicKey - Sender's full public key (ML-KEM + Falcon, custom-encoded string).
-   * @returns {Promise<{decryptedBlob: Blob, validSignature: boolean, originalFileName: string}>}
    */
   async function streamDecryptVerifyFile(file, yourPrivateKey, senderPublicKey) {
     if (!file || file.size < (2 * SIZE_FIELD_LEN) + MlKem768.CT_SIZE + pqcSignFalcon512.SIG_SIZE) {
-        throw new Error("file is too small or corrupted");
+        showAlert("File is too small or corrupted", true, "file is too small or corrupted");
+        return;
     }
 
     // 1. Prepare keys
-    const sK = _privateKeyPair.mlkemKey; // ML-KEM Private Key (Uint8Array)
     const [____, pubFACustom] = senderPublicKey.split("|");
     const pF = fromBase64(decodeCustomToBase64(pubFACustom)); // Falcon Public Key
+    const sK = _privateKeyPair.mlkemKey; // ML-KEM Private Key (Uint8Array)
 
-    if (!sK || !pF) throw new Error("invalid or missing decryption/verification keys");
+    if (!sK || !pF) {
+      showAlert("Invalid or missing decryption/verification keys", true, "invalid or missing decryption/verification keys");
+      return;
+    }
     
     // 2. Read metadata and header (fixed size for KEM CT Length and Falcon Sig Length)
     const METADATA_LEN = 2 * SIZE_FIELD_LEN;
@@ -569,12 +625,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const FALCON_SIG_LEN_ACTUAL = metadataView.getUint32(SIZE_FIELD_LEN, false);
 
     if (MLKEM_CT_LEN_ACTUAL > MAX_HEADER_SIZE || FALCON_SIG_LEN_ACTUAL > MAX_HEADER_SIZE) {
-        throw new Error("header component size too large, possible corruption");
+        showAlert("Header component size too large, possible corruption", true, "header component size too large, possible corruption");
+        return;
     }
 
     const HEADER_SIZE = METADATA_LEN + MLKEM_CT_LEN_ACTUAL + FALCON_SIG_LEN_ACTUAL;
     if (file.size < HEADER_SIZE) {
-        throw new Error("file is too small to contain header components");
+        showAlert("File is too small to contain header components", true, "file is too small to contain header components");
+        return;
     }
 
     // 3. Read header components (CT and Signature)
@@ -611,7 +669,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const encryptedChunk = new Uint8Array(encryptedChunkBuffer);
 
         if (encryptedChunk.length < CHUNK_IV_PLUS_TAG_SIZE) {
-            throw new Error("encrypted chunk too short or file truncated");
+            showAlert("Encrypted chunk too short or file truncated", true, "encrypted chunk too short or file truncated");
+            return;
         }
 
         // Extract IV and Ciphertext
@@ -629,9 +688,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             bytesDecrypted += decryptedChunk.length;
         } catch (e) {
             if (e.message?.includes('operation failed')) {
-                throw new Error("decryption failed (file corrupted, keys are wrong, or AAD mismatch)");
+                showAlert("Decryption failed (file corrupted, keys are wrong, or AAD mismatch)", true, e); // FIXED: AAD
+                return;
             }
-            throw e;
+            showAlert("Decryption failed", true, e);
+            return;
         }
 
         offset = chunkEnd;
@@ -674,13 +735,19 @@ document.addEventListener('DOMContentLoaded', async () => {
    * @param {string} senderPublicKey - Sender's public key (custom-encoded).
    */
   async function decryptVerifyText(input, senderPublicKey) {
-    if (!_privateKeyPair.mlkemKey) throw new Error("your decryption key is missing or invalid");
+    if (!_privateKeyPair.mlkemKey) {
+      showAlert("Your decryption key is missing or invalid", true, "your decryption key is missing or invalid");
+      return;
+    }
     const sK = _privateKeyPair.mlkemKey; // ML-KEM Private Key (Uint8Array)
     
     const [____, pubFACustom] = senderPublicKey.split("|");
     const pF = fromBase64(decodeCustomToBase64(pubFACustom)); // Falcon Public Key
 
-    if (!sK || !pF) throw new Error("invalid or missing decryption/verification keys");
+    if (!sK || !pF) {
+      showAlert("Invalid or missing decryption/verification keys", true, "invalid or missing decryption/verification keys");
+      return;
+    }
 
     // Text mode uses custom encoding/standard base64
     const [ctKStr, ivStrCustom, ctStrCustom, sigStrCustom] = input.split("|"); // NEW: Added sigStrCustom
@@ -689,7 +756,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const aesCiphertext = fromBase64(decodeCustomToBase64(ctStrCustom));
     const signatureBytes = fromBase64(decodeCustomToBase64(sigStrCustom)); // NEW: Signature bytes
 
-    if (!ctK || !aesIv || !aesCiphertext || !signatureBytes) throw new Error("invalid encoded text data");
+    if (!ctK || !aesIv || !aesCiphertext || !signatureBytes) {
+      showAlert("Invalid encoded text data", true, "invalid encoded text data");
+      return;
+    }
 
     // a. key decapsulation (ml-kem)
     const kem = new MlKem768();
@@ -708,9 +778,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       ));
     } catch (e) {
       if (e.message?.includes('operation failed')) {
-        throw new Error("decryption failed (ciphertext is corrupted, keys are wrong, or AAD mismatch)");
+        showAlert("Decryption failed (ciphertext is corrupted, keys are wrong, or AAD mismatch)", true, e); // FIXED: AAD
+        return;
       }
-      throw e;
+      showAlert("Decryption failed", true, e);
+      return;
     }
     
     // d. verify signature (falcon)
@@ -731,36 +803,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- EVENT HANDLERS ---
   
-  // COPY & PASTE BUTTONS
-  const copyBtn = document.getElementById('copyBtn');
-  const outputText = document.getElementById('outputText');
-  const pasteBtn = document.getElementById('pasteBtn');
-  const inputText = document.getElementById('inputText');
+  // COPY & PASTE BUTTONS  
+  if (pasteBtn) {
+    pasteBtn.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        inputText.value = text;
+      } catch (err) {
+        showAlert('Failed to paste from clipboard', true, err); // FIXED: Capitalization
+      }
+    });
+  }
   
-  // COPY BUTTON
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(outputText.value);
-      showAlert("copied");
-    } catch (e) {
-      showAlert("failed to copy", true, e);
-    }
-  });
-  
-  // PASTE BUTTON
-  pasteBtn.addEventListener('click', async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      inputText.value = text;
-    } catch (e) {
-      showAlert("failed to paste", true, e);
-    }
-  });
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(outputText.value);
+        showAlert('Copied to clipboard', false); // FIXED: Capitalization
+      } catch (err) {
+        showAlert('Failed to copy', true, err); // FIXED: Capitalization
+      }
+    });
+  }
   
   // GENERATE KEYS BUTTON
   genKeysBtn.addEventListener('click', async () => {
     genKeysBtn.disabled = true;
-    genKeysBtn.textContent = "generating...";
+    genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generating New Keys...'; // FIXED: Kept icon, updated text
     
     try {
       const kem = new MlKem768();
@@ -771,10 +840,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Store public keys
       const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub));
       const faPubCustom = encodeBase64ToCustom(toBase64(fk.publicKey));
+      if (!mlkemPubCustom || !faPubCustom) throw new Error("Key encoding failed");
 
       // Store private keys for export
       _privateKeyPair.mlkem = encodeBase64ToCustom(toBase64(mlkemPrivRaw));
       _privateKeyPair.falcon = encodeBase64ToCustom(toBase64(fk.privateKey));
+      if (!_privateKeyPair.mlkem || !_privateKeyPair.falcon) throw new Error("Private key encoding failed");
 
       // Store private keys securely in memory (as Uint8Array, as required by the libraries)
       _privateKeyPair.mlkemKey = mlkemPrivRaw; // ML-KEM private key (Uint8Array)
@@ -782,14 +853,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // Copy public keys to clipboard
       await navigator.clipboard.writeText(`${mlkemPubCustom}|${faPubCustom}`);
-      alert('your public keys were copied to the clipboard, please save them somewhere safe');
+      alert('Your public keys were copied to the clipboard, please save them somewhere safe'); // Must use default alert for attention
 
-      showAlert("keys generated successfully");
+      showAlert("Keys generated successfully", false); // FIXED: Capitalization
     } catch (e) {
-      showAlert("key generation failed", true, e);
+      showAlert("Key generation failed", true, e); // FIXED: Capitalization
     } finally {
       genKeysBtn.disabled = false;
-      genKeysBtn.textContent = "generate new keys";
+      genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generate New Keys'; // FIXED: Kept icon, updated text
       clearOutput();
       clearFileOutput();
     }
@@ -798,13 +869,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Export button
   exportBtn.addEventListener('click', async () => {
     if (!_privateKeyPair.mlkem || !_privateKeyPair.falcon) {
-      return showAlert("generate or import keys first", true);
+      return showAlert("Generate or import keys first", true); // FIXED: Capitalization
     }
     impExp.value = ""; // Clear export field
   
     try {
       const mlkemPrivBase64 = decodeCustomToBase64(_privateKeyPair.mlkem);
       const faPrivBase64    = decodeCustomToBase64(_privateKeyPair.falcon);
+      if (!mlkemPrivBase64 || !faPrivBase64) throw new Error("Private key decoding failed");
   
       const rawKeys = JSON.stringify({
         mlkemPriv: mlkemPrivBase64,
@@ -817,23 +889,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (password) {
         // Password encryption
         outputData = await encryptWithPassword(new TextEncoder().encode(rawKeys), password);
-        showAlert("private keys exported (password encrypted)");
+        showAlert("Private keys exported (password encrypted)", false); // FIXED: Capitalization
       } else {
         // Compression only (unsafe)
         outputData = await compressString(rawKeys);
-        showAlert("private keys exported (compressed, NO password protection)");
+        showAlert("Private keys exported (compressed, no password protection)", false); // FIXED: Capitalization
       }
+      if (!outputData) throw new Error("Output data generation failed");
       
       keyPassword.value = '';
       impExp.value = outputData;
     } catch (e) {
-      showAlert("export failed", true, e);
+      showAlert("Export failed", true, e); // FIXED: Capitalization
     }
   });
 
   importBtn.addEventListener('click', async () => {
     const data = impExp.value.trim();
-    if (!data) return showAlert("paste key data into the field first", true);
+    if (!data) return showAlert("Paste key data into the field first", true); // FIXED: Capitalization
   
     try {
       let rawKeysJson;
@@ -841,47 +914,63 @@ document.addEventListener('DOMContentLoaded', async () => {
   
       if (data.startsWith(PENC_HEADER)) {
         // Password decryption
-        if (!password) throw new Error("password required to decrypt key data");
+        if (!password) {
+          showAlert("Password required to decrypt key data", true, "password required to decrypt key data"); // FIXED: Capitalization
+          return;
+        }
         const decryptedBytes = await decryptWithPassword(data, password);
+        if (!decryptedBytes) return; // Error handled by decryptWithPassword
         rawKeysJson = new TextDecoder().decode(decryptedBytes);
       } else {
         // Decompression only (old behavior)
         rawKeysJson = await decompressString(data);
+        if (!rawKeysJson) return; // Error handled by decompressString
       }
   
-      if (!rawKeysJson) return showAlert("data parsing failed", true);
+      if (!rawKeysJson) return showAlert("Data parsing failed", true); // FIXED: Capitalization
   
       const keys = JSON.parse(rawKeysJson);
   
       // Private keys are mandatory
       if (!keys.mlkemPriv || !keys.faPriv) {
-        return showAlert("private keys missing", true);
+        return showAlert("Private keys missing", true, "private keys missing"); // FIXED: Capitalization
       }
   
       // Encode private keys
       _privateKeyPair.mlkem = encodeBase64ToCustom(keys.mlkemPriv);
       _privateKeyPair.falcon = encodeBase64ToCustom(keys.faPriv);
+      if (!_privateKeyPair.mlkem || !_privateKeyPair.falcon) {
+        showAlert("Private key re-encoding failed", true, "private key re-encoding failed"); // FIXED: Capitalization
+        return;
+      }
   
       // Store raw private keys securely in memory
-      _privateKeyPair.mlkemKey = fromBase64(keys.mlkemPriv);
-      _privateKeyPair.falconKey = fromBase64(keys.faPriv);
+      const mlkemKeyRaw = fromBase64(keys.mlkemPriv);
+      const falconKeyRaw = fromBase64(keys.faPriv);
+      if (!mlkemKeyRaw || !falconKeyRaw) {
+        showAlert("Private key decoding to raw bytes failed", true, "private key decoding to raw bytes failed"); // FIXED: Capitalization
+        return;
+      }
+      _privateKeyPair.mlkemKey = mlkemKeyRaw;
+      _privateKeyPair.falconKey = falconKeyRaw;
   
       // Public keys are optional (legacy format)
       if (keys.mlkemPub && keys.faPub) {
         const mlkemPubCustom = encodeBase64ToCustom(keys.mlkemPub);
         const faPubCustom = encodeBase64ToCustom(keys.faPub);
         await navigator.clipboard.writeText(`${mlkemPubCustom}|${faPubCustom}`);
-        alert("your public keys were copied to clipboard, save them safely as we no longer export them");
+        showAlert('Your public keys were copied to clipboard, save them safely as we no longer export them', false); // FIXED: Capitalization
       }
   
-      showAlert("keys imported successfully");
+      showAlert("Keys imported successfully", false); // FIXED: Capitalization
       keyPassword.value = '';
       impExp.value = '';
       clearOutput();
       clearFileOutput();
   
     } catch (e) {
-      showAlert("import failed (check the password)", true, e);
+      // JSON.parse or other unexpected errors
+      showAlert("Import failed (check the password)", true, e); // FIXED: Capitalization
     }
   });
 
@@ -891,15 +980,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const msg = inp.value.trim();
     const rec = recPub.value.trim();
     
-    if (!hasPrivateKey()) return showAlert("generate or import your private key first", true);
-    if (!rec) return showAlert("recipient key required", true);
+    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+    if (!rec) return showAlert("Recipient key required", true); // FIXED: Capitalization
     
     encBtn.disabled = true;
-    encBtn.textContent = "encrypting...";
+    encBtn.innerHTML = '<i class="fas fa-lock"></i> Encrypting...'; // FIXED: Kept icon, updated text
 
     try {
       // Setup performs KEM, HKDF, and Signing
       const textSetup = await setupEncryptionText(msg, rec);
+      if (!textSetup) return; // Error handled inside setupEncryptionText
       
       // 1. Encrypt Payload (Raw message string converted to bytes)
       const messageBytes = new TextEncoder().encode(msg);
@@ -915,21 +1005,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       ));
       
       // 2. Encode to custom format, *including* signature as a separate component
+      const ctKEMCustom = encodeBase64ToCustom(toBase64(textSetup.ctMLKem));
+      const ivCustom = encodeBase64ToCustom(toBase64(aesIv));
+      const ctAESCustom = encodeBase64ToCustom(toBase64(aesCiphertext));
+      const sigCustom = encodeBase64ToCustom(toBase64(textSetup.signatureBytes));
+
+      if (!ctKEMCustom || !ivCustom || !ctAESCustom || !sigCustom) throw new Error("Encoding of ciphertext or signature failed"); // FIXED: Capitalization
+
       const encoded = '---START FLAME ASYM---\n'+
-      [ encodeBase64ToCustom(toBase64(textSetup.ctMLKem)),
-        encodeBase64ToCustom(toBase64(aesIv)),
-        encodeBase64ToCustom(toBase64(aesCiphertext)),
-        encodeBase64ToCustom(toBase64(textSetup.signatureBytes)) // NEW: Signature component
+      [ ctKEMCustom,
+        ivCustom,
+        ctAESCustom,
+        sigCustom
       ].join("|")
       +'\n---END FLAME ASYM---';
 
       out.value = encoded;
-      showAlert("encryption & signing complete");
+      showAlert("Encryption & signing complete", false); // FIXED: Capitalization
     } catch (e) {
-      showAlert("encryption failed", true, e);
+      showAlert("Encryption failed", true, e); // FIXED: Capitalization
     } finally {
       encBtn.disabled = false;
-      encBtn.textContent = "encrypt & sign";
+      encBtn.innerHTML = '<i class="fas fa-lock"></i> Encrypt'; // FIXED: Kept icon, updated text
     }
   });
 
@@ -937,30 +1034,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   decBtn.addEventListener('click', async () => {
     clearOutput();
     const val = inp.value.match(/---START FLAME ASYM---([\s\S]*?)---END FLAME ASYM---/);
+    if (!val) return showAlert("Incorrect formatting or ciphertext does not exist", true); // FIXED: Capitalization
+    
     const msg = val[1].trim();
-    if (!msg) return showAlert("incorrect formatting or cipher does not exist", true);
     
     const sender = recPub.value.trim();
 
-    if (!hasPrivateKey()) return showAlert("generate or import your private key first", true);
-    if (!sender) return showAlert("sender's public key required", true);
+    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+    if (!sender) return showAlert("Sender's public key required", true); // FIXED: Capitalization
 
     decBtn.disabled = true;
-    decBtn.textContent = "decrypting...";
+    decBtn.innerHTML = '<i class="fas fa-unlock"></i> Decrypting...'; // FIXED: Kept icon, updated text
 
     try {
       const result = await decryptVerifyText(msg, sender);
+      if (!result) return; // Error handled inside decryptVerifyText
       
       out.value = result.decryptedData;
-      res.textContent = result.validSignature ? "valid signature" : "the sender could not be verified! (check the recipient public key)";
+      res.textContent = result.validSignature ? "Signature valid" : "The sender could not be verified (check the recipient public key)"; // FIXED: Capitalization (Signature valid)
       res.style.color = result.validSignature ? "#50fa7b" : "#ff5555";
 
-      showAlert("decryption & verification complete");
+      showAlert("Decryption & verification complete", false); // FIXED: Capitalization
     } catch (e) {
-      showAlert("decryption or verification failed", true, e)
+      showAlert("Decryption or verification failed", true, e); // FIXED: Capitalization
     } finally {
       decBtn.disabled = false;
-      decBtn.textContent = "decrypt & verify";
+      decBtn.innerHTML = '<i class="fas fa-unlock"></i> Decrypt'; // FIXED: Kept icon, updated text
     }
   });
 
@@ -968,25 +1067,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   fakeFileBtn.addEventListener('click', () => realFileInput.click());
   
   realFileInput.addEventListener('change', () => {
-    const file = realFileInput.files[0];
-    chosenFileName.textContent = file ? file.name : "no file chosen";
+    const fileName = realFileInput.files.length ? realFileInput.files[0].name : 'No file chosen'; // FIXED: Capitalization
+    chosenFileName.textContent = fileName;
   });
   
   // ======= ENCRYPT FILE =======
   encryptFileBtn.addEventListener('click', async () => {
     encryptFileBtn.disabled = true;
-    encryptFileBtn.textContent = "encrypting...";
+    encryptFileBtn.innerHTML = '<i class="fas fa-lock"></i> Encrypting File...'; // FIXED: Kept icon, updated text
     fileVerifyResult.textContent = "";
   
     const file = realFileInput.files[0];
     const rec = recPub.value.trim();
   
-    if (!file) return showAlert("please select a file first", true);
-    if (!hasPrivateKey()) return showAlert("generate or import your private key first", true);
-    if (!rec) return showAlert("recipient public key required", true);
+    if (!file) return showAlert("Please select a file first", true); // FIXED: Capitalization
+    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+    if (!rec) return showAlert("Recipient public key required", true); // FIXED: Capitalization
   
     try {
       const setupResult = await setupEncryptionFile(file, rec);
+      if (!setupResult) return; // Error handled inside setupEncryptionFile
+
       const fileBytes = new Uint8Array(await file.arrayBuffer());
       const ctMLKem = setupResult.ctMLKem;
       const signatureBytes = setupResult.signatureBytes;
@@ -1032,33 +1133,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
   
-      showAlert(`encryption complete. file downloaded as '${file.name}.flame'`);
+      showAlert(`Encryption complete, file downloaded as '${file.name}.flame'`, false); // FIXED: Capitalization
     } catch (e) {
-      showAlert("file encryption failed", true, e);
+      showAlert("File encryption failed", true, e); // FIXED: Capitalization
     } finally {
       encryptFileBtn.disabled = false;
-      encryptFileBtn.textContent = "encrypt file";
+      encryptFileBtn.innerHTML = '<i class="fas fa-lock"></i> Encrypt File'; // FIXED: Kept icon, updated text
     }
   });
   
   // ======= DECRYPT FILE =======
   decryptFileBtn.addEventListener('click', async () => {
     decryptFileBtn.disabled = true;
-    decryptFileBtn.textContent = "decrypting...";
+    decryptFileBtn.innerHTML = '<i class="fas fa-unlock"></i> Decrypting File...'; // FIXED: Kept icon, updated text
     fileVerifyResult.textContent = "";
   
     const file = realFileInput.files[0];
     const senderPub = recPub.value.trim();
   
-    if (!file) return showAlert("please select a file first", true);
-    if (!hasPrivateKey()) return showAlert("generate or import your private key first", true);
-    if (!senderPub) return showAlert("sender public key required", true);
-    if (!_privateKeyPair.mlkemKey) return showAlert("your ML-KEM decryption key is not loaded.", true);
+    if (!file) return showAlert("Please select a file first", true); // FIXED: Capitalization
+    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+    if (!senderPub) return showAlert("Sender public key required", true); // FIXED: Capitalization
+    if (!_privateKeyPair.mlkemKey) return showAlert("Your ML-KEM decryption key is not loaded", true); // FIXED: Capitalization, ML-KEM
   
     const sK = _privateKeyPair.mlkemKey;
     const [__, pubFACustom] = senderPub.split("|");
     const pF = fromBase64(decodeCustomToBase64(pubFACustom));
-    if (!sK || !pF) return showAlert("invalid or missing decryption/verification keys", true);
+    if (!sK || !pF) return showAlert("Invalid or missing decryption/verification keys", true); // FIXED: Capitalization
   
     try {
       const fileBytes = new Uint8Array(await file.arrayBuffer());
@@ -1069,7 +1170,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       const metadataView = new DataView(metadata.buffer);
       const MLKEM_CT_LEN_READ = metadataView.getUint32(0, false);
       const FALCON_SIG_LEN_READ = metadataView.getUint32(SIZE_FIELD_LEN, false);
-  
+      
+      if (MLKEM_CT_LEN_READ > MAX_HEADER_SIZE || FALCON_SIG_LEN_READ > MAX_HEADER_SIZE) {
+        throw new Error("Header component size too large, possible corruption"); // FIXED: Capitalization, Will be caught below
+      }
+      
+      const HEADER_END = METADATA_LEN + MLKEM_CT_LEN_READ + AES_IV_LEN + FALCON_SIG_LEN_READ;
+      if (fileBytes.length < HEADER_END) {
+        throw new Error("File is too small to contain header components"); // FIXED: Capitalization, Will be caught below
+      }
+
       offset += METADATA_LEN;
   
       const ctMLKem = fileBytes.slice(offset, offset + MLKEM_CT_LEN_READ); offset += MLKEM_CT_LEN_READ;
@@ -1085,21 +1195,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       aadBytes.set(metadata, 0);
       aadBytes.set(ctMLKem, METADATA_LEN);
   
-      const decryptedBytes = new Uint8Array(await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: aesIv, additionalData: aadBytes },
-        aesKey,
-        aesCiphertext
-      ));
-  
+      let decryptedBytes;
+      try {
+        decryptedBytes = new Uint8Array(await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: aesIv, additionalData: aadBytes },
+          aesKey,
+          aesCiphertext
+        ));
+      } catch (e) {
+        if (e.message?.includes('operation failed')) {
+          throw new Error("Decryption failed (file corrupted, keys are wrong, or AAD mismatch)"); // FIXED: Capitalization, AAD, Will be caught below
+        }
+        throw e; // Will be caught below
+      }
+
       const fileHash = new Uint8Array(await crypto.subtle.digest('SHA-256', decryptedBytes));
       const dataToVerify = prepareDataToSignFile(fileHash);
   
       const falcon = await pqcSignFalcon512();
       const valid = await falcon.verify(signatureBytes, dataToVerify, pF);
   
-      fileVerifyResult.textContent = valid ? "signature valid" : "signature verification failed";
+      fileVerifyResult.textContent = valid ? "Signature valid" : "Signature verification failed"; // FIXED: Capitalization
       fileVerifyResult.style.color = valid ? "#50fa7b" : "#ff5555";
-      if (!valid) throw new Error("signature verification failed");
+      
+      if (!valid) {
+        throw new Error("Signature verification failed"); // FIXED: Capitalization, Will be caught below
+      }
   
       const originalFileName = file.name.endsWith('.flame') ? file.name.slice(0, -6) : "decrypted_file.dat";
   
@@ -1112,39 +1233,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
   
-      showAlert("file decryption & verification complete");
+      showAlert("File decryption & verification complete", false); // FIXED: Capitalization
     } catch (e) {
-      showAlert("file decryption or verification failed", true, e);
+      showAlert("File decryption or verification failed", true, e); // FIXED: Capitalization
     } finally {
       decryptFileBtn.disabled = false;
-      decryptFileBtn.textContent = "decrypt file";
+      decryptFileBtn.innerHTML = '<i class="fas fa-unlock"></i> Decrypt File'; // FIXED: Kept icon, updated text
     }
   });
   
-  // FIX: The tabs logic is updated here to toggle the 'hidden' class based on the HTML structure
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+  // ---- TAB FUNCTIONALITY ----
+  const tabButtons = document.querySelectorAll('.tab-btn'); // buttons in tabs-nav
+  const tabContents = document.querySelectorAll('.tab-content'); // sections
+  
+  tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      // 1. Update button states
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      // remove active from all buttons
+      tabButtons.forEach(b => b.classList.remove('active'));
+      // activate clicked button
       btn.classList.add('active');
-      
-      // 2. Get the target section ID
-      const tgt = btn.getAttribute('data-tab');
-      
-      // 3. Update content visibility
-      document.querySelectorAll('.tab-content').forEach(c => {
-        if (c.id === tgt) {
-          c.classList.add('active');
-          c.classList.remove('hidden'); // Show the correct tab content
-        } else {
-          c.classList.remove('active');
-          c.classList.add('hidden'); // Hide all other tab content
-        }
+  
+      const targetId = btn.dataset.tab; // data-tab attribute
+  
+      // show the correct tab content, hide others
+      tabContents.forEach(tc => {
+        tc.classList.toggle('active', tc.id === targetId);
       });
-      
-      // Also clear output/verification result when switching tabs
-      clearOutput();
-      clearFileOutput();
     });
   });
 });
