@@ -1,258 +1,132 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FLAME</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="icon" href="/flame/favicon.ico" type="image/x-icon">
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;800&display=swap"
     rel="stylesheet"
   />
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    integrity="sha512-Avb2QiuDEEvB4bZJYdft2mNjVShBftLdPG8FJ0V7irTLQ8Uo0qcPxh4Plq7G5tGm0rU+1SPhVotteLpBERwTkw=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
   <link rel="stylesheet" href="styles.css" />
+  <!-- For Github -->
+  <link rel="icon" href="/flame/favicon.ico" type="image/x-icon">
 </head>
-<body class="min-h-screen flex flex-col items-center px-4">
+<body>
   <!-- Header -->
-  <h1 class="text-4xl font-extrabold text-center pt-10 pb-6 text-text-secondary">
-    FLAME
-  </h1>
-  <p class="text-center text-xs font-thin text-gray-400">
-    a browser-based post-quantum encryption multi-tool, featuring: 
-  </p>
-  <p class="text-center text-sm font-light text-text-accent mb-8">
-    Falcon-512, AES-256, and MLKEM-768
-  </p>
+  <header>
+    <h1>FLAME</h1>
+    <p>a browser-based post-quantum encryption multi-tool</p>
+    <p class="subheader">Falcon-512, AES-256, and MLKEM-768</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <nav class="tabs-nav">
+      <button class="tab-btn active first" data-tab="keys">Key Management</button>
+      <button class="tab-btn" data-tab="crypt">Text Messaging</button>
+      <button class="tab-btn last" data-tab="files">File Transfer</button>
+    </nav>
   
-  <!-- Main -->
-  <div class="w-full max-w-4xl bg-dark shadow-2xl border border-dark">
-    <!-- Tabs -->
-    <div class="border-b border-dark">
-      <nav class="flex justify-evenly -mb-0.5" id="tabsNav">
-        <button class="tab-btn active first flex-1 text-center" data-tab="keys">
-          key management
-        </button>
-        <button class="tab-btn flex-1 text-center" data-tab="crypt">
-          text messaging
-        </button>
-        <button class="tab-btn last flex-1 text-center" data-tab="files">
-          file transfer
-        </button>
-      </nav>
-    </div>
-
-    <!-- Tab Contents -->
-    <div class="p-8" id="tabContents">
-      <!-- Key Management -->
-      <section id="keys" class="tab-content space-y-6">
-
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            recipient public key
-          </label>
-          <textarea
-            id="recipientPublicKey"
-            rows="1"
-            placeholder="public key"
-            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
-          ></textarea>
-        </div>
-        
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            import / export your keys
-          </label>
-          <textarea
-            id="importExportKeys"
-            rows="1"
-            placeholder="paste keys here to import or click export"
-            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
-          ></textarea>
-        </div>
-        
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            key password
-          </label>
-          <input
-            id="keyPassword"
-            rows="1"
-            placeholder="your password"
-            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
-            type="password"
-          ></input>
-        </div>
-        
-        <div class="flex space-x-4">
-          <button
-            id="importKeysBtn"
-            class="btn-indigo flex-1 font-semibold py-3 transition"
-          >
-            import keys
+    <div class="tabs-content">
+      <!-- Keys -->
+      <section id="keys" class="tab-content active">
+        <label>Recipient Public Key</label>
+        <textarea id="recipientPublicKey" rows="5" placeholder="Public key"></textarea>
+  
+        <label>Import / Export Keys</label>
+        <textarea id="importExportKeys" rows="5" placeholder="Paste or export keys"></textarea>
+  
+        <label>Key Password</label>
+        <input id="keyPassword" type="password" placeholder="Your password" />
+  
+        <div class="btn-row">
+          <button id="importKeysBtn" class="btn primary full">
+            <i class="fas fa-unlock"></i> Import Keys
           </button>
-          <button
-            id="exportKeysBtn"
-            class="btn-indigo flex-1 font-semibold py-3 transition"
-          >
-            export keys
+          <button id="exportKeysBtn" class="btn primary full">
+            <i class="fas fa-lock"></i> Export Keys
           </button>
         </div>
-        
-        <button
-          id="genKeysBtn"
-          class="w-full btn-indigo font-semibold py-4 transition"
-        >
-          generate new keys
+  
+        <button id="genKeysBtn" class="btn primary full">
+          <i class="fas fa-key"></i> Generate New Keys
         </button>
       </section>
-
-      <!-- Encrypt / Decrypt -->
-      <section id="crypt" class="tab-content hidden space-y-6">
-        <div class="space-y-2 relative">
-          <label class="block text-sm font-semibold text-text-secondary">
-            input
-            <button
-              type="button"
-              id="pasteBtn"
-              class="ml-2 text-xs px-2 py-1 btn-indigo"
-            >
-              paste
-            </button>
-          </label>
-          <textarea
-            id="inputText"
-            rows="6"
-            placeholder="input your plain or received text"
-            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
-          ></textarea>
-        </div>
-      
-        <div class="flex space-x-4">
-          <button
-            id="encryptSignBtn"
-            class="btn-green flex-1 font-semibold py-3 transition"
-          >
-            encrypt
+  
+      <!-- Text Messaging -->
+      <section id="crypt" class="tab-content">
+        <label>Input 
+          <button id="pasteBtn" class="btn small">
+            <i class="fas fa-clipboard"></i> Paste
           </button>
-          <button
-            id="decryptVerifyBtn"
-            class="btn-red flex-1 font-semibold py-3 transition"
-          >
-            decrypt
+        </label>
+        <textarea id="inputText" rows="5" placeholder="Enter text here"></textarea>
+  
+        <div class="btn-row">
+          <button id="encryptSignBtn" class="btn primary full">
+            <i class="fas fa-lock"></i> Encrypt
+          </button>
+          <button id="decryptVerifyBtn" class="btn primary full">
+            <i class="fas fa-unlock"></i> Decrypt
           </button>
         </div>
-      
-        <div class="space-y-2 relative">
-          <label class="block text-sm font-semibold text-text-secondary">
-            output
-            <button
-              type="button"
-              id="copyBtn"
-              class="ml-2 text-xs px-2 py-1 btn-indigo"
-            >
-              copy
-            </button>
-          </label>
-          <textarea
-            id="outputText"
-            rows="6"
-            readonly
-            placeholder="you will receive your decrypted or encrypted text here"
-            class="w-full p-3 bg-dark-light border-dark focus:border-text-secondary"
-          ></textarea>
-        </div>
-      
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            signature verification result
-          </label>
-          <pre
-            id="verifyResult"
-            class="whitespace-pre-wrap p-4 text-sm font-mono min-h-[3rem] border border-dark bg-dark-light text-accent-main"
-          ></pre>
-        </div>
+  
+        <label>Output 
+          <button id="copyBtn" class="btn small">
+            <i class="fas fa-copy"></i> Copy
+          </button>
+        </label>
+        <textarea id="outputText" rows="5" readonly placeholder="Encrypted / decrypted text"></textarea>
+  
+        <label>Signature Verification</label>
+        <pre id="verifyResult"></pre>
       </section>
-      
-      <!-- File Encrypt / Decrypt -->
-      <section id="files" class="tab-content hidden space-y-6">
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            select file
-          </label>
-          <div class="relative">
-            <input id="realFileInput" type="file" class="hidden" />
-            <div class="flex items-center">
-              <button id="fakeFileBtn" class="btn-indigo px-4 py-2 font-semibold">
-                choose file
-              </button>
-              <span id="chosenFileName" class="ml-3 text-sm text-text-secondary">no file chosen</span>
-            </div>
-          </div>
-        </div>
-      
-        <div class="flex space-x-4">
-          <button
-            id="encryptFileBtn"
-            class="btn-green flex-1 font-semibold py-3 transition"
-          >
-            encrypt file
+  
+      <!-- File Transfer -->
+      <section id="files" class="tab-content">
+        <label>Select File</label>
+        <div class="file-input">
+          <input id="realFileInput" type="file" hidden />
+          <button id="fakeFileBtn" class="btn primary">
+            <i class="fas fa-file"></i> Choose File
           </button>
-          <button
-            id="decryptFileBtn"
-            class="btn-red flex-1 font-semibold py-3 transition"
-          >
-            decrypt file
+          <span id="chosenFileName">No file chosen</span>
+        </div>
+  
+        <div class="btn-row">
+          <button id="encryptFileBtn" class="btn primary full">
+            <i class="fas fa-lock"></i> Encrypt File
+          </button>
+          <button id="decryptFileBtn" class="btn primary full">
+            <i class="fas fa-unlock"></i> Decrypt File
           </button>
         </div>
-      
-        <div class="space-y-2">
-          <label class="block text-sm font-semibold text-text-secondary">
-            signature verification result
-          </label>
-          <pre
-            id="fileVerifyResult"
-            class="whitespace-pre-wrap p-4 text-sm font-mono min-h-[3rem] border border-dark bg-dark-light text-accent-main"
-          ></pre>
-        </div>
+  
+        <label>Signature Verification</label>
+        <pre id="fileVerifyResult"></pre>
       </section>
     </div>
   </div>
 
   <!-- Footer -->
-  <div class="text-sm text-center text-gray-500 mt-4 font-mono">
-    version 3P.1.1
-  </div>
-  <a
-    href="https://github.com/stfu23489/flame"
-    target="_blank"
-    rel="noopener noreferrer"
-    class="text-sm text-center text-indigo-custom hover:text-indigo-custom-light mt-2 font-mono transition-colors duration-200"
-  >
-    view source code
-  </a>
+  <footer>
+    <span>Version 3P.2.0</span>
+    <a href="https://github.com/stfu23489/flame" target="_blank">View Source Code</a>
+  </footer>
 
-  <!-- Alert Popup -->
-  <div id="alertPopup" class="alert-container shadow-xl overflow-hidden p-4">
-    <div class="flex items-center space-x-3">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        class="h-6 w-6"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-      >
-        <path
-          fill-rule="evenodd"
-          d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 102 0V7a1 1 0 10-2 0v2zm1 4a1 1 0 100-2 1 1 0 000 2z"
-          clip-rule="evenodd"
-        />
-      </svg>
-      <span id="alertMessage" class="text-sm font-semibold"></span>
-    </div>
-    <div class="progress-bar-container mt-3">
-      <div id="alertProgressBar" class="progress-bar"></div>
-    </div>
+  <!-- Alert -->
+  <div id="alertPopup" class="alert">
+    <span id="alertMessage"></span>
+    <div id="alertProgressBar" class="progress-bar"></div>
   </div>
 
   <script type="module" src="script.js"></script>
