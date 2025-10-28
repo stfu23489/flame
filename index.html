@@ -23,10 +23,10 @@
 <body>
   <!-- Header -->
   <header>
-    <h1>
-      <img src="flame.svg" alt="Flame Logo" class="logo" />
-      FLAME
-    </h1>
+    <div class="header-content">
+      <img src="flame.svg" alt="Logo" class="logo">
+      <h1>FLAME</h1>
+    </div>
   </header>
 
   <!-- Tabs -->
@@ -65,13 +65,16 @@
   
       <!-- Text Messaging -->
       <section id="crypt" class="tab-content">
-        <label>Input 
+      
+        <!-- Input -->
+        <div class="input-group">
+          <label for="inputText">Input</label>
           <button id="pasteBtn" class="btn small">
             <i class="fas fa-clipboard"></i> Paste
           </button>
-        </label>
-        <textarea id="inputText" rows="5" placeholder="Enter text here"></textarea>
-  
+          <textarea id="inputText" rows="5" placeholder="Enter text here"></textarea>
+        </div>
+      
         <div class="btn-row">
           <button id="encryptSignBtn" class="btn primary full">
             <i class="fas fa-lock"></i> Encrypt
@@ -80,16 +83,20 @@
             <i class="fas fa-unlock"></i> Decrypt
           </button>
         </div>
-  
-        <label>Output 
+      
+        <!-- Output -->
+        <div class="input-group">
+          <label for="outputText">Output</label>
           <button id="copyBtn" class="btn small">
             <i class="fas fa-copy"></i> Copy
           </button>
-        </label>
-        <textarea id="outputText" rows="5" readonly placeholder="Encrypted / decrypted text"></textarea>
-  
+          <textarea id="outputText" rows="5" readonly placeholder="Encrypted / decrypted text"></textarea>
+        </div>
+      
+        <!-- Signature Verification -->
         <label>Signature Verification</label>
         <pre id="verifyResult"></pre>
+      
       </section>
   
       <!-- File Transfer -->
@@ -120,7 +127,7 @@
 
   <!-- Footer -->
   <footer>
-    <span>Version 3P.2.2</span>
+    <span>Version 3P.2.3</span>
     <a href="https://github.com/stfu23489/flame" target="_blank">View Source Code</a>
     <a class="subheader">Featuring FALCON-512, AES-256, and MLKEM-512</a>
   </footer>
