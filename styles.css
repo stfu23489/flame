@@ -80,12 +80,14 @@ header h1 {
   font-weight: 800;
   color: var(--accent);
   margin: 0;
+  margin-top: -50px;
   text-align: center;
 }
 
 header .logo {
-  width: clamp(0px, 14vw, 100px); /* scales with viewport */
+  width: clamp(0px, 12vw, 100px); /* scales with viewport */
   height: auto; /* maintain aspect ratio */
+  margin-top: -50px;
 }
 
 .subheader {
