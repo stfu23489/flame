@@ -63,20 +63,29 @@ body {
   font-size: 1.1rem;
 }
 
+header {
+  padding: 1rem;
+}
+
+.header-content {
+  display: flex;
+  align-items: center; /* vertically centers text and logo */
+  justify-content: center; /* center horizontally */
+  gap: 1rem; /* space between logo and text */
+  flex-wrap: wrap; /* allows wrapping on small screens */
+}
+
 header h1 {
-  font-size: 9rem;
+  font-size: clamp(2rem, 9vw, 9rem); /* scales between 2rem and 9rem depending on viewport width */
   font-weight: 800;
-  text-align: center;
   color: var(--accent);
-  margin-top: -50px;
-  margin-bottom: 0;
-  align-items: center; /* vertically centers the SVG and text */
+  margin: 0;
+  text-align: center;
 }
 
 header .logo {
-  margin-right: -75px;
-  width: 100px; /* adjust as needed */
-  height: 100px;
+  width: clamp(0px, 15vw, 100px); /* scales with viewport */
+  height: auto; /* maintain aspect ratio */
 }
 
 .subheader {
@@ -192,12 +201,6 @@ textarea:focus, input:focus {
   width: 100%;
 }
 
-.btn.small {
-  padding: 6px 10px;
-  font-size: 0.9rem;
-  background-color: var(--btn-small);
-}
-
 .btn.small:hover {
   background-color: var(--btn-small-hover);
 }
@@ -221,9 +224,12 @@ textarea:focus, input:focus {
   font-size: 1.05rem;
 }
 
-.tab-content .btn.small {
-  padding: 6px 10px;
+.btn.small {
+  background-color: var(--btn-small);
+  padding: 6px 12px;  /* or whatever smaller size you want */
   font-size: 0.9rem;
+  flex: 0 0 auto;
+  margin-bottom: 5px;
 }
 
 .tab-content label + .file-input,
