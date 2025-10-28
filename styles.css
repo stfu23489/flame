@@ -76,7 +76,7 @@ header {
 }
 
 header h1 {
-  font-size: clamp(2rem, 9vw, 9rem); /* scales between 2rem and 9rem depending on viewport width */
+  font-size: clamp(0rem, 14vw, 9rem); /* scales between 2rem and 9rem depending on viewport width */
   font-weight: 800;
   color: var(--accent);
   margin: 0;
@@ -84,7 +84,7 @@ header h1 {
 }
 
 header .logo {
-  width: clamp(0px, 15vw, 100px); /* scales with viewport */
+  width: clamp(0px, 14vw, 100px); /* scales with viewport */
   height: auto; /* maintain aspect ratio */
 }
 
