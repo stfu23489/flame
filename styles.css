@@ -201,10 +201,6 @@ textarea:focus, input:focus {
   width: 100%;
 }
 
-.btn.small:hover {
-  background-color: var(--btn-small-hover);
-}
-
 .btn-row {
   display: flex;
   gap: 14px;
@@ -226,10 +222,16 @@ textarea:focus, input:focus {
 
 .btn.small {
   background-color: var(--btn-small);
-  padding: 6px 12px;  /* or whatever smaller size you want */
+  color: black; /* fix: make text black */
+  padding: 6px 12px;
   font-size: 0.9rem;
   flex: 0 0 auto;
   margin-bottom: 5px;
+}
+
+.btn.small:hover {
+  background-color: var(--btn-small-hover);
+  color: black; /* ensure hover stays black */
 }
 
 .tab-content label + .file-input,
