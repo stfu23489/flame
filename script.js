@@ -19,7 +19,7 @@ const CONSTANTS = {
   PBKDF2_KEY_LEN: 32, // Key length (256 bits for AES-256)
   PENC_HEADER: "FLAME_PENC_V1:", // Prefix for password-encrypted data
   // --- DEVELOPER CONSTANTS ---
-  DEV_MODE: false, // Set to true to enable verbose console logging of errors
+  DEV_MODE: true, // Set to true to enable verbose console logging of errors
 };
 // UPDATED DESTRUCTURING
 const { SIZE_FIELD_LEN, AES_IV_LEN, AES_TAG_LEN, MAX_HEADER_SIZE, DOMAIN_TEXT, DOMAIN_FILE, FILE_CHUNK_SIZE, PBKDF2_SALT_LEN, PBKDF2_ITERATIONS, PBKDF2_KEY_LEN, PENC_HEADER, DEV_MODE } = CONSTANTS;
@@ -373,28 +373,45 @@ document.addEventListener('DOMContentLoaded', async () => {
    * @param {Error|string} [errorDetails] - Optional: The full error object or message for console logging.
    */
   function showAlert(message, isError = false, errorDetails = null) {
-    // FIXED: Ensured capitalization is correct for user messages, removing unnecessary cleaning/lowercasing.
-    const userMessage = message.charAt(0).toUpperCase() + message.slice(1); 
-
+    const userMessage = message+'!';
+    console.log(message); // In case the user misses it
     if (isError && DEV_MODE && errorDetails) {
       const fullErrorMsg = errorDetails?.message || String(errorDetails);
       console.error("alert error:", fullErrorMsg);
     } else if (isError && DEV_MODE) {
-      console.error("alert error (no details provided):", message);
+      console.error("alert error (no details provided)");
     }
   
-    alertMessage.textContent = userMessage;
-    alertPopup.classList.remove('alert-success', 'alert-error');
-    alertPopup.classList.add(isError ? 'alert-error' : 'alert-success');
-    alertPopup.classList.add('show');
+    // Select core elements
+    const alertIcon = alertPopup.querySelector("i");
+    const alertMessageSpan = alertPopup.querySelector("span");
+  
+    // Update message
+    alertMessageSpan.textContent = userMessage;
+  
+    // Reset classes
+    alertPopup.classList.remove("alert-success", "alert-error");
+    alertIcon.classList.remove("fa-triangle-exclamation", "fa-circle-check");
+  
+    // Apply style and icon based on error/success
+    if (isError) {
+      alertPopup.classList.add("alert-error");
+      alertIcon.classList.add("fa-solid", "fa-triangle-exclamation");
+    } else {
+      alertPopup.classList.add("alert-success");
+      alertIcon.classList.add("fa-solid", "fa-circle-check");
+    }
+  
+    // Show alert
+    alertPopup.classList.add("show");
   
     // Restart progress bar
-    alertProgressBar.classList.remove('animate');
-    void alertProgressBar.offsetWidth; // force reflow
-    alertProgressBar.classList.add('animate');
+    alertProgressBar.classList.remove("animate");
+    void alertProgressBar.offsetWidth; // Force reflow
+    alertProgressBar.classList.add("animate");
   
     clearTimeout(alertTimeout);
-    alertTimeout = setTimeout(() => alertPopup.classList.remove('show'), 3000);
+    alertTimeout = setTimeout(() => alertPopup.classList.remove("show"), 3000);
   }
   globalAlertRef = showAlert; // Assign reference for use in loadEncoderAlphabet
 
@@ -976,17 +993,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Encrypt & Sign (Text)
   encBtn.addEventListener('click', async () => {
-    clearOutput();
-    const msg = inp.value.trim();
-    const rec = recPub.value.trim();
-    
-    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
-    if (!rec) return showAlert("Recipient key required", true); // FIXED: Capitalization
-    
     encBtn.disabled = true;
     encBtn.innerHTML = '<i class="fas fa-lock"></i> Encrypting...'; // FIXED: Kept icon, updated text
 
     try {
+      clearOutput();
+      const msg = inp.value.trim();
+      const rec = recPub.value.trim();
+      
+      if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+      if (!rec) return showAlert("Recipient key required", true); // FIXED: Capitalization
+
       // Setup performs KEM, HKDF, and Signing
       const textSetup = await setupEncryptionText(msg, rec);
       if (!textSetup) return; // Error handled inside setupEncryptionText
@@ -1032,21 +1049,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Decrypt & Verify (Text)
   decBtn.addEventListener('click', async () => {
-    clearOutput();
-    const val = inp.value.match(/---START FLAME ASYM---([\s\S]*?)---END FLAME ASYM---/);
-    if (!val) return showAlert("Incorrect formatting or ciphertext does not exist", true); // FIXED: Capitalization
-    
-    const msg = val[1].trim();
-    
-    const sender = recPub.value.trim();
-
-    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
-    if (!sender) return showAlert("Sender's public key required", true); // FIXED: Capitalization
-
     decBtn.disabled = true;
     decBtn.innerHTML = '<i class="fas fa-unlock"></i> Decrypting...'; // FIXED: Kept icon, updated text
 
     try {
+      clearOutput();
+      const val = inp.value.match(/---START FLAME ASYM---([\s\S]*?)---END FLAME ASYM---/);
+      if (!val) return showAlert("Incorrect formatting or ciphertext does not exist", true); // FIXED: Capitalization
+      
+      const msg = val[1].trim();
+      
+      const sender = recPub.value.trim();
+  
+      if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+      if (!sender) return showAlert("Sender's public key required", true); // FIXED: Capitalization
+
       const result = await decryptVerifyText(msg, sender);
       if (!result) return; // Error handled inside decryptVerifyText
       
@@ -1075,16 +1092,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   encryptFileBtn.addEventListener('click', async () => {
     encryptFileBtn.disabled = true;
     encryptFileBtn.innerHTML = '<i class="fas fa-lock"></i> Encrypting File...'; // FIXED: Kept icon, updated text
-    fileVerifyResult.textContent = "";
-  
-    const file = realFileInput.files[0];
-    const rec = recPub.value.trim();
-  
-    if (!file) return showAlert("Please select a file first", true); // FIXED: Capitalization
-    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
-    if (!rec) return showAlert("Recipient public key required", true); // FIXED: Capitalization
   
     try {
+      fileVerifyResult.textContent = "";
+      const file = realFileInput.files[0];
+      const rec = recPub.value.trim();
+
+      if (!file) return showAlert("Please select a file first", true); // FIXED: Capitalization
+      if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+      if (!rec) return showAlert("Recipient public key required", true); // FIXED: Capitalization
+      
       const setupResult = await setupEncryptionFile(file, rec);
       if (!setupResult) return; // Error handled inside setupEncryptionFile
 
@@ -1146,22 +1163,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   decryptFileBtn.addEventListener('click', async () => {
     decryptFileBtn.disabled = true;
     decryptFileBtn.innerHTML = '<i class="fas fa-unlock"></i> Decrypting File...'; // FIXED: Kept icon, updated text
-    fileVerifyResult.textContent = "";
-  
-    const file = realFileInput.files[0];
-    const senderPub = recPub.value.trim();
-  
-    if (!file) return showAlert("Please select a file first", true); // FIXED: Capitalization
-    if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
-    if (!senderPub) return showAlert("Sender public key required", true); // FIXED: Capitalization
-    if (!_privateKeyPair.mlkemKey) return showAlert("Your ML-KEM decryption key is not loaded", true); // FIXED: Capitalization, ML-KEM
-  
-    const sK = _privateKeyPair.mlkemKey;
-    const [__, pubFACustom] = senderPub.split("|");
-    const pF = fromBase64(decodeCustomToBase64(pubFACustom));
-    if (!sK || !pF) return showAlert("Invalid or missing decryption/verification keys", true); // FIXED: Capitalization
   
     try {
+      fileVerifyResult.textContent = "";
+    
+      const file = realFileInput.files[0];
+      const senderPub = recPub.value.trim();
+    
+      if (!file) return showAlert("Please select a file first", true); // FIXED: Capitalization
+      if (!hasPrivateKey()) return showAlert("Generate or import your private key first", true); // FIXED: Capitalization
+      if (!senderPub) return showAlert("Sender public key required", true); // FIXED: Capitalization
+      if (!_privateKeyPair.mlkemKey) return showAlert("Your ML-KEM decryption key is not loaded", true); // FIXED: Capitalization, ML-KEM
+    
+      const sK = _privateKeyPair.mlkemKey;
+      const [__, pubFACustom] = senderPub.split("|");
+      const pF = fromBase64(decodeCustomToBase64(pubFACustom));
+      if (!sK || !pF) return showAlert("Invalid or missing decryption/verification keys", true); // FIXED: Capitalization
+
       const fileBytes = new Uint8Array(await file.arrayBuffer());
       const METADATA_LEN = 2 * SIZE_FIELD_LEN;
   

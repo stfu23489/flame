@@ -23,9 +23,10 @@
 <body>
   <!-- Header -->
   <header>
-    <h1>FLAME</h1>
-    <p>a browser-based post-quantum encryption multi-tool</p>
-    <p class="subheader">Falcon-512, AES-256, and MLKEM-768</p>
+    <h1>
+      <img src="flame.svg" alt="Flame Logo" class="logo" />
+      FLAME
+    </h1>
   </header>
 
   <!-- Tabs -->
@@ -119,13 +120,17 @@
 
   <!-- Footer -->
   <footer>
-    <span>Version 3P.2.1</span>
+    <span>Version 3P.2.2</span>
     <a href="https://github.com/stfu23489/flame" target="_blank">View Source Code</a>
+    <a class="subheader">Featuring FALCON-512, AES-256, and MLKEM-512</a>
   </footer>
 
   <!-- Alert -->
   <div id="alertPopup" class="alert">
-    <span id="alertMessage"></span>
+    <div class="alert-content">
+      <i class="fa-solid"></i>
+      <span id="alertMessage"></span>
+    </div>
     <div id="alertProgressBar" class="progress-bar"></div>
   </div>
 
