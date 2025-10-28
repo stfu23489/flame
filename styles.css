@@ -222,7 +222,7 @@ textarea:focus, input:focus {
 
 .btn.small {
   background-color: var(--btn-small);
-  color: black; /* fix: make text black */
+  color: var(--bg);
   padding: 6px 12px;
   font-size: 0.9rem;
   flex: 0 0 auto;
@@ -231,7 +231,7 @@ textarea:focus, input:focus {
 
 .btn.small:hover {
   background-color: var(--btn-small-hover);
-  color: black; /* ensure hover stays black */
+  color: var(--bg);
 }
 
 .tab-content label + .file-input,
