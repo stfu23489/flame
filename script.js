@@ -817,6 +817,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         validSignature: valid, 
     };
   }
+  
+  /**
+   * Cross-browser reliable function to copy text to the clipboard.
+   * Creates a temporary, hidden textarea, selects the text, uses execCommand('copy'), 
+   * and then deletes the element as a fallback for browsers (like Safari) that restrict
+   * the modern navigator.clipboard API outside of secure contexts or direct user actions.
+   * @param {string} text The text to copy.
+   * @returns {Promise<boolean>} True if copy was successful.
+   */
+  async function copyToClipboard(text) {
+      try {
+          // 1. Try the modern API first (for speed and standard compliance)
+          await navigator.clipboard.writeText(text);
+          return true;
+      } catch (modernApiError) {
+          // 2. Fallback to the reliable execCommand method
+          console.warn("Modern clipboard API failed, falling back to execCommand:", modernApiError);
+  
+          // Create the temporary element
+          const tempTextArea = document.createElement('textarea');
+          tempTextArea.value = text;
+          
+          // Hide the element completely (crucial for security and UI)
+          tempTextArea.setAttribute('readonly', '');
+          tempTextArea.style.position = 'absolute';
+          tempTextArea.style.left = '-9999px'; // Move off-screen
+          tempTextArea.style.opacity = '0'; // Ensure visual hiding
+  
+          document.body.appendChild(tempTextArea);
+          
+          // Select the text
+          tempTextArea.select();
+          
+          try {
+              // Execute copy command
+              const success = document.execCommand('copy');
+              
+              // Delete the element immediately
+              document.body.removeChild(tempTextArea);
+              return success;
+          } catch (execCommandError) {
+              console.error('Fallback copy method failed:', execCommandError);
+              
+              // Ensure deletion even if copy fails
+              document.body.removeChild(tempTextArea);
+              return false;
+          }
+      }
+  }
 
   // --- EVENT HANDLERS ---
   
@@ -869,8 +918,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       _privateKeyPair.falconKey = fk.privateKey;
       
       // Copy public keys to clipboard
-      await navigator.clipboard.writeText(`${mlkemPubCustom}|${faPubCustom}`);
-      alert('Your public keys were copied to the clipboard, please save them somewhere safe'); // Must use default alert for attention
+      const copySuccess = await copyToClipboard(`${mlkemPubCustom}|${faPubCustom}`);
+
+      if (copySuccess) { // Must use default alert for attention
+        alert('Your public keys were copied to the clipboard, please save them somewhere safe');
+      } else {
+        alert('Key generation succeeded, but automatic copy failed due to browser restrictions. Please report this to the developers.');
+      }
 
       showAlert("Keys generated successfully", false); // FIXED: Capitalization
     } catch (e) {
@@ -1279,4 +1333,5 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   });
+
 });
