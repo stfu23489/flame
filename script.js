@@ -845,73 +845,74 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // GENERATE KEYS BUTTON
   genKeysBtn.addEventListener('click', async () => {
-    genKeysBtn.disabled = true;
-    genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generating New Keys...';
-
-    try {
-      const kem = new MlKem768();
-      const [mlkemPub, mlkemPrivRaw] = await kem.generateKeyPair();
-      const falcon = await pqcSignFalcon512();
-      const fk = await falcon.keypair();
-
-      // Encode public keys
-      const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub));
-      const faPubCustom   = encodeBase64ToCustom(toBase64(fk.publicKey));
-      if (!mlkemPubCustom || !faPubCustom) throw new Error("Key encoding failed");
-
-      // Store private keys encoded
-      _privateKeyPair.mlkem  = encodeBase64ToCustom(toBase64(mlkemPrivRaw));
-      _privateKeyPair.falcon = encodeBase64ToCustom(toBase64(fk.privateKey));
-      if (!_privateKeyPair.mlkem || !_privateKeyPair.falcon) throw new Error("Private key encoding failed");
-
-      // Store binary private keys
-      _privateKeyPair.mlkemKey  = mlkemPrivRaw;
-      _privateKeyPair.falconKey = fk.privateKey;
-
-      // Clipboard copy
-      const publicKeyBundle = `${mlkemPubCustom}|${faPubCustom}`;
-      let copySuccess = false;
-
+      genKeysBtn.disabled = true;
+      genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generating New Keys...';
+  
       try {
-        // Modern API first
-        await navigator.clipboard.writeText(publicKeyBundle);
-        copySuccess = true;
+          const kem = new MlKem768();
+          const [mlkemPub, mlkemPrivRaw] = await kem.generateKeyPair();
+          const falcon = await pqcSignFalcon512();
+          const fk = await falcon.keypair();
+  
+          // Encode public keys
+          const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub));
+          const faPubCustom    = encodeBase64ToCustom(toBase64(fk.publicKey));
+          if (!mlkemPubCustom || !faPubCustom)
+              throw new Error("Key encoding failed");
+  
+          // Store private keys (encoded)
+          _privateKeyPair.mlkem  = encodeBase64ToCustom(toBase64(mlkemPrivRaw));
+          _privateKeyPair.falcon = encodeBase64ToCustom(toBase64(fk.privateKey));
+  
+          // Store private keys (binary)
+          _privateKeyPair.mlkemKey  = mlkemPrivRaw;
+          _privateKeyPair.falconKey = fk.privateKey;
+  
+          // ------------------------------------------------------
+          // PUT PUBLIC KEY BUNDLE INTO THE IMPORT/EXPORT TEXTAREA
+          // ------------------------------------------------------
+          const bundle = `${mlkemPubCustom}|${faPubCustom}`;
+          const area = document.getElementById('importExportKeys');
+  
+          area.value = bundle;
+          area.focus();
+          area.select();
+  
+          // ------------------------------------------------------
+          // COPY FROM THE TEXTAREA
+          // ------------------------------------------------------
+          let copySuccess = false;
+  
+          try {
+              await navigator.clipboard.writeText(area.value);
+              copySuccess = true;
+          } catch (errModern) {
+              console.warn("Modern clipboard API failed:", errModern);
+  
+              try {
+                  copySuccess = document.execCommand('copy');
+              } catch (errFallback) {
+                  console.error("Fallback copy failed:", errFallback);
+                  copySuccess = false;
+              }
+          }
+  
+          if (copySuccess) {
+              alert("Your public keys have been placed into the import/export box and copied to your clipboard.");
+          } else {
+              alert("Your public keys have been placed into the import/export box, please copy your public key manually.");
+          }
+  
+          showAlert("Keys generated successfully");
+  
       } catch (e) {
-
-        // Fallback
-        try {
-          const temp = document.createElement("textarea");
-          temp.value = publicKeyBundle;
-          temp.style.position = "absolute";
-          temp.style.left = "-9999px";
-          temp.style.opacity = "0";
-          temp.setAttribute("readonly", "");
-
-          document.body.appendChild(temp);
-          temp.select();
-
-          copySuccess = document.execCommand("copy");
-          document.body.removeChild(temp);
-        } catch (e) {
-          showAlert("Copy failed", true, e);
-          copySuccess = false;
-        }
+          showAlert("Key generation failed", true, e);
+      } finally {
+          genKeysBtn.disabled = false;
+          genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generate New Keys';
+          clearOutput();
+          clearFileOutput();
       }
-
-      if (copySuccess) {
-        alert("Your public keys were copied to the clipboard, please save them somewhere safe");
-      }
-
-      showAlert("Keys generated successfully", false);
-
-    } catch (e) {
-      showAlert("Key generation failed", true, e);
-    } finally {
-      genKeysBtn.disabled = false;
-      genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generate New Keys';
-      clearOutput();
-      clearFileOutput();
-    }
   });
 
   // Export button
