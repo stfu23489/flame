@@ -920,7 +920,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Copy public keys to clipboard
       const copySuccess = await copyToClipboard(`${mlkemPubCustom}|${faPubCustom}`);
 
-      if (copySuccess) {
+      if (copySuccess) { // Must use default alert for attention
         alert('Your public keys were copied to the clipboard, please save them somewhere safe');
       } else {
         alert('Key generation succeeded, but automatic copy failed due to browser restrictions. Please report this to the developers.');
@@ -1333,4 +1333,5 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   });
+
 });
