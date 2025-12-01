@@ -817,55 +817,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         validSignature: valid, 
     };
   }
-  
-  /**
-   * Cross-browser reliable function to copy text to the clipboard.
-   * Creates a temporary, hidden textarea, selects the text, uses execCommand('copy'), 
-   * and then deletes the element as a fallback for browsers (like Safari) that restrict
-   * the modern navigator.clipboard API outside of secure contexts or direct user actions.
-   * @param {string} text The text to copy.
-   * @returns {Promise<boolean>} True if copy was successful.
-   */
-  async function copyToClipboard(text) {
-      try {
-          // 1. Try the modern API first (for speed and standard compliance)
-          await navigator.clipboard.writeText(text);
-          return true;
-      } catch (modernApiError) {
-          // 2. Fallback to the reliable execCommand method
-          console.warn("Modern clipboard API failed, falling back to execCommand:", modernApiError);
-  
-          // Create the temporary element
-          const tempTextArea = document.createElement('textarea');
-          tempTextArea.value = text;
-          
-          // Hide the element completely (crucial for security and UI)
-          tempTextArea.setAttribute('readonly', '');
-          tempTextArea.style.position = 'absolute';
-          tempTextArea.style.left = '-9999px'; // Move off-screen
-          tempTextArea.style.opacity = '0'; // Ensure visual hiding
-  
-          document.body.appendChild(tempTextArea);
-          
-          // Select the text
-          tempTextArea.select();
-          
-          try {
-              // Execute copy command
-              const success = document.execCommand('copy');
-              
-              // Delete the element immediately
-              document.body.removeChild(tempTextArea);
-              return success;
-          } catch (execCommandError) {
-              console.error('Fallback copy method failed:', execCommandError);
-              
-              // Ensure deletion even if copy fails
-              document.body.removeChild(tempTextArea);
-              return false;
-          }
-      }
-  }
 
   // --- EVENT HANDLERS ---
   
@@ -895,43 +846,69 @@ document.addEventListener('DOMContentLoaded', async () => {
   // GENERATE KEYS BUTTON
   genKeysBtn.addEventListener('click', async () => {
     genKeysBtn.disabled = true;
-    genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generating New Keys...'; // FIXED: Kept icon, updated text
-    
+    genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generating New Keys...';
+
     try {
       const kem = new MlKem768();
       const [mlkemPub, mlkemPrivRaw] = await kem.generateKeyPair();
       const falcon = await pqcSignFalcon512();
       const fk = await falcon.keypair();
 
-      // Store public keys
+      // Encode public keys
       const mlkemPubCustom = encodeBase64ToCustom(toBase64(mlkemPub));
-      const faPubCustom = encodeBase64ToCustom(toBase64(fk.publicKey));
+      const faPubCustom   = encodeBase64ToCustom(toBase64(fk.publicKey));
       if (!mlkemPubCustom || !faPubCustom) throw new Error("Key encoding failed");
 
-      // Store private keys for export
-      _privateKeyPair.mlkem = encodeBase64ToCustom(toBase64(mlkemPrivRaw));
+      // Store private keys encoded
+      _privateKeyPair.mlkem  = encodeBase64ToCustom(toBase64(mlkemPrivRaw));
       _privateKeyPair.falcon = encodeBase64ToCustom(toBase64(fk.privateKey));
       if (!_privateKeyPair.mlkem || !_privateKeyPair.falcon) throw new Error("Private key encoding failed");
 
-      // Store private keys securely in memory (as Uint8Array, as required by the libraries)
-      _privateKeyPair.mlkemKey = mlkemPrivRaw; // ML-KEM private key (Uint8Array)
+      // Store binary private keys
+      _privateKeyPair.mlkemKey  = mlkemPrivRaw;
       _privateKeyPair.falconKey = fk.privateKey;
-      
-      // Copy public keys to clipboard
-      const copySuccess = await copyToClipboard(`${mlkemPubCustom}|${faPubCustom}`);
 
-      if (copySuccess) { // Must use default alert for attention
-        alert('Your public keys were copied to the clipboard, please save them somewhere safe');
-      } else {
-        alert('Key generation succeeded, but automatic copy failed due to browser restrictions. Please report this to the developers.');
+      // Clipboard copy
+      const publicKeyBundle = `${mlkemPubCustom}|${faPubCustom}`;
+      let copySuccess = false;
+
+      try {
+        // Modern API first
+        await navigator.clipboard.writeText(publicKeyBundle);
+        copySuccess = true;
+      } catch (e) {
+
+        // Fallback
+        try {
+          const temp = document.createElement("textarea");
+          temp.value = publicKeyBundle;
+          temp.style.position = "absolute";
+          temp.style.left = "-9999px";
+          temp.style.opacity = "0";
+          temp.setAttribute("readonly", "");
+
+          document.body.appendChild(temp);
+          temp.select();
+
+          copySuccess = document.execCommand("copy");
+          document.body.removeChild(temp);
+        } catch (e) {
+          showAlert("Copy failed", true, e);
+          copySuccess = false;
+        }
       }
 
-      showAlert("Keys generated successfully", false); // FIXED: Capitalization
+      if (copySuccess) {
+        alert("Your public keys were copied to the clipboard, please save them somewhere safe");
+      }
+
+      showAlert("Keys generated successfully", false);
+
     } catch (e) {
-      showAlert("Key generation failed", true, e); // FIXED: Capitalization
+      showAlert("Key generation failed", true, e);
     } finally {
       genKeysBtn.disabled = false;
-      genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generate New Keys'; // FIXED: Kept icon, updated text
+      genKeysBtn.innerHTML = '<i class="fas fa-key"></i> Generate New Keys';
       clearOutput();
       clearFileOutput();
     }
@@ -1333,5 +1310,4 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   });
-
 });
